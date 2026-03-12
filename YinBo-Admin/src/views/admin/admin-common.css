@@ -1,0 +1,37 @@
+/* 管理员端通用样式 */
+.admin-page { max-width: 1200px; margin: 0 auto; }
+.admin-page-title { font-size: var(--text-xl); font-weight: 600; color: var(--text-primary); margin: 0 0 var(--sp-6); letter-spacing: -0.02em; }
+.admin-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--sp-4); margin-bottom: var(--sp-6); }
+.admin-card { background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow-sm); }
+.admin-table-wrap { overflow-x: auto; border-radius: var(--radius-lg); }
+.admin-table { width: 100%; border-collapse: collapse; }
+.admin-table th, .admin-table td { padding: var(--sp-4) var(--sp-5); text-align: left; border-bottom: 1px solid var(--border); }
+.admin-table th { background: var(--bg-elevated); font-weight: 600; font-size: var(--text-sm); color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.admin-table tbody tr { transition: background var(--dur-fast); }
+.admin-table tbody tr:hover { background: var(--bg-hover); }
+.admin-table tbody tr:last-child td { border-bottom: none; }
+.admin-btn { padding: var(--sp-2) var(--sp-4); border-radius: var(--radius-sm); font-size: var(--text-sm); font-weight: 500; cursor: pointer; transition: all var(--dur-fast); border: 1px solid transparent; }
+.admin-btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+.admin-btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); box-shadow: var(--shadow-glow); }
+.admin-btn-ghost { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+.admin-btn-ghost:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.admin-btn-danger { background: rgba(239, 68, 68, 0.1); color: var(--red); border-color: rgba(239, 68, 68, 0.2); }
+.admin-btn-danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.2); }
+.admin-input { padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); font-size: var(--text-base); transition: border-color var(--dur-fast); }
+.admin-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-muted); }
+.admin-input::placeholder { color: var(--text-tertiary); }
+.admin-empty { text-align: center; padding: var(--sp-16) var(--sp-8); color: var(--text-tertiary); font-size: var(--text-sm); }
+.admin-empty p { margin: 0; }
+.admin-empty-cell { text-align: center; color: var(--text-tertiary); padding: var(--sp-8) !important; }
+.admin-pagination { display: flex; align-items: center; justify-content: center; gap: var(--sp-4); margin-top: var(--sp-6); padding: var(--sp-4) 0; }
+.admin-pagination button { padding: var(--sp-2) var(--sp-5); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-primary); font-size: var(--text-sm); cursor: pointer; transition: all var(--dur-fast); }
+.admin-pagination button:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--border-hover); }
+.admin-pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+.admin-pagination .page-info { font-size: var(--text-sm); color: var(--text-secondary); }
+.admin-modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: var(--z-modal); padding: var(--sp-5); }
+.admin-modal { background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border); padding: var(--sp-6); width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+.admin-modal h3 { margin: 0 0 var(--sp-5); font-size: var(--text-lg); font-weight: 600; color: var(--text-primary); }
+.admin-form-group { margin-bottom: var(--sp-4); }
+.admin-form-group label { display: block; font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--sp-2); }
+.admin-form-group input, .admin-form-group textarea { width: 100%; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); font-size: var(--text-base); }
+.admin-modal-actions { display: flex; justify-content: flex-end; gap: var(--sp-3); margin-top: var(--sp-6); padding-top: var(--sp-4); border-top: 1px solid var(--border); }

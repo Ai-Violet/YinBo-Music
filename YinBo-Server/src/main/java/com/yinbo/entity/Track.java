@@ -1,0 +1,41 @@
+package com.yinbo.entity;
+
+import com.baomidou.mybatisplus.annotation.*;
+import lombok.Data;
+import java.time.LocalDateTime;
+
+@Data
+@TableName("tracks")
+public class Track {
+    
+    @TableId(type = IdType.AUTO)
+    private Long id;
+    
+    private String title;
+    private String artist;
+    private String album;
+    private Integer duration;
+    private Integer bitrate;
+    private String mime;
+    private String minioKey;
+    private String coverKey;
+    private String coverUrl;
+    private Long fileSize;
+    private String lyrics;
+    private String lyricKey;
+    private Long artistId;
+    private Long playCount;
+    private Long likeCount;
+    private Integer status;
+    private Long uploaderId;
+    private Long categoryId;
+    
+    @TableLogic
+    private Integer deleted;
+    
+    @TableField(fill = FieldFill.INSERT)
+    private LocalDateTime createdAt;
+    
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updatedAt;
+}

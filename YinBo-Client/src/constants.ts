@@ -1,0 +1,4 @@
+// 默认头像/封面图片（无头像或封面时使用）
+// 使用 data URL 确保无需依赖静态文件，始终可用（灰色用户剪影 SVG）
+export const DEFAULT_AVATAR_COVER =
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM0YTU1NjgiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjI0IiByPSIxMCIgZmlsbD0iIzJkMzc0OCIvPjxlbGxpcHNlIGN4PSIzMiIgY3k9IjUwIiByeD0iMTgiIHJ5PSIxNCIgZmlsbD0iIzJkMzc0OCIvPjwvc3ZnPg=='

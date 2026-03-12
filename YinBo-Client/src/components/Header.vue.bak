@@ -1,0 +1,475 @@
+<template>
+  <div class="header-container">
+    <!-- 返回按钮 -->
+    <div class="nav-buttons">
+      <el-button circle @click="goBack">
+        <el-icon><ArrowLeft /></el-icon>
+      </el-button>
+    </div>
+
+    <!-- 搜索框 -->
+    <div class="search-box">
+      <el-input
+        v-model="searchQuery"
+        placeholder="搜索歌曲、歌手、专辑"
+        :prefix-icon="Search"
+        clearable
+        @keyup.enter="handleSearch"
+      />
+    </div>
+
+    <!-- 用户操作区域 -->
+    <div class="user-area">
+      <!-- 用户信息和下拉菜单 -->
+      <el-dropdown
+        trigger="click"
+        placement="bottom-end"
+        @command="handleCommand"
+        @visible-change="handleDropdownVisibleChange"
+      >
+        <div class="user-info">
+          <!-- 头像上传区域 -->
+          <div class="avatar-upload" @click.stop="triggerAvatarUpload">
+            <img
+              v-if="avatarUrl"
+              :src="avatarUrl"
+              class="user-avatar"
+              alt="用户头像"
+            />
+            <el-icon v-else class="default-avatar"><UserFilled /></el-icon>
+            <div class="avatar-overlay">
+              <el-icon><Camera /></el-icon>
+            </div>
+            <input
+              ref="avatarInput"
+              type="file"
+              accept="image/*"
+              style="display: none"
+              @change="handleAvatarChange"
+            />
+          </div>
+          <span class="username">{{ username }}</span>
+          <el-icon :class="['dropdown-arrow', { 'arrow-rotated': dropdownVisible }]"><ArrowDown /></el-icon>
+        </div>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <!-- 用户数据 -->
+            <div class="user-stats-dropdown">
+              <div class="stat-row">
+                <span class="stat-value">{{ followingCount }}</span>
+                <span class="stat-label">关注</span>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-row">
+                <span class="stat-value">{{ followersCount }}</span>
+                <span class="stat-label">粉丝</span>
+              </div>
+            </div>
+            <el-dropdown-item divided command="profile">
+              <el-icon><UserFilled /></el-icon>
+              个人信息
+            </el-dropdown-item>
+            <el-dropdown-item command="logout">
+              <el-icon><SwitchButton /></el-icon>
+              退出登录
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+
+      <!-- 操作按钮 -->
+      <div class="action-buttons">
+        <el-button circle size="small" @click="handleMessage">
+          <el-icon><Message /></el-icon>
+        </el-button>
+        <el-button circle size="small" @click="handleSettings">
+          <el-icon><Setting /></el-icon>
+        </el-button>
+        <el-button circle size="small" @click="handleMinimize">
+          <el-icon><Minus /></el-icon>
+        </el-button>
+        <el-button circle size="small" @click="handleClose">
+          <el-icon><Close /></el-icon>
+        </el-button>
+      </div>
+    </div>
+
+    <!-- 头像裁剪弹窗 -->
+    <AvatarCropper
+      v-model="cropperVisible"
+      :image-url="originalImage"
+      @confirm="handleCroppedImage"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import {
+  Search,
+  ArrowLeft,
+  ArrowDown,
+  UserFilled,
+  Camera,
+  Message,
+  Setting,
+  Close,
+  Minus,
+  SwitchButton
+} from '@element-plus/icons-vue'
+import AvatarCropper from './AvatarCropper.vue'
+import { userApi } from '../api'
+
+const router = useRouter()
+const searchQuery = ref('')
+
+// 用户数据
+const username = ref('普通用户昵称')
+const followingCount = ref(128)
+const followersCount = ref(1024)
+
+// 头像相关
+const avatarUrl = ref('')
+const avatarInput = ref<HTMLInputElement | null>(null)
+const cropperVisible = ref(false)
+const originalImage = ref('')
+
+// 下拉菜单状态
+const dropdownVisible = ref(false)
+
+// 默认头像URL
+const defaultAvatar = 'https://cube.elemecdn.com/0/88904b2f72962dfc8898bb5d3f13a10.jpeg'
+
+const goBack = () => {
+  router.back()
+}
+
+const handleSearch = () => {
+  if (searchQuery.value.trim()) {
+    console.log('搜索:', searchQuery.value)
+    // TODO: 实现搜索功能\
+
+  }
+}
+
+// 查看用户资料
+const viewProfile = () => {
+  console.log('查看用户资料')
+  // TODO: 实现查看/修改用户资料功能
+}
+
+// 处理下拉菜单命令
+const handleCommand = (command: string) => {
+  switch (command) {
+    case 'profile':
+      console.log('个人信息设置')
+      // TODO: 跳转到个人信息设置页面
+      break
+    case 'logout':
+      console.log('退出登录')
+      // TODO: 实现退出登录功能
+      break
+  }
+}
+
+// 触发头像上传
+const triggerAvatarUpload = () => {
+  avatarInput.value?.click()
+}
+
+// 处理头像文件选择
+const handleAvatarChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  if (file) {
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+      console.log('请选择图片文件')
+      return
+    }
+
+    // 验证文件大小（限制5MB）
+    if (file.size > 5 * 1024 * 1024) {
+      console.log('图片大小不能超过5MB')
+      return
+    }
+
+    // 读取图片并打开裁剪弹窗
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      originalImage.value = e.target?.result as string
+      cropperVisible.value = true
+    }
+    reader.readAsDataURL(file)
+
+    // 清空 input，允许重复选择同一文件
+    target.value = ''
+  }
+}
+
+// 处理裁剪后的图片
+const handleCroppedImage = async (blob: Blob) => {
+  // 将 blob 转换为 URL 用于预览
+  const url = URL.createObjectURL(blob)
+  avatarUrl.value = url
+
+  try {
+    // 显示上传中提示
+    ElMessage.info('头像上传中...')
+
+    // 上传到服务器
+    await userApi.uploadAvatar(blob as File)
+
+    // 上传成功
+    ElMessage.success('头像上传成功！')
+
+    // TODO: 可以在这里刷新用户信息获取最新的头像URL
+    console.log('头像上传成功')
+  } catch (error) {
+    console.error('头像上传失败:', error)
+    ElMessage.error('头像上传失败，请重试')
+
+    // 上传失败，恢复头像
+    avatarUrl.value = ''
+  }
+}
+
+// 消息按钮
+const handleMessage = () => {
+  console.log('打开消息中心')
+  // TODO: 实现消息中心功能
+}
+
+// 设置按钮
+const handleSettings = () => {
+  console.log('打开设置')
+  // TODO: 实现设置功能
+}
+
+// 缩小按钮
+const handleMinimize = () => {
+  console.log('缩小窗口')
+  // TODO: 实现窗口缩小功能
+}
+
+// 关闭按钮
+const handleClose = () => {
+  console.log('关闭窗口')
+  // TODO: 实现窗口关闭功能
+}
+
+// 处理下拉菜单显示状态变化
+const handleDropdownVisibleChange = (visible: boolean) => {
+  dropdownVisible.value = visible
+}
+</script>
+
+<style scoped lang="scss">
+.header-container {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 60px;
+  padding: 0 20px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.nav-buttons {
+  flex-shrink: 0;
+
+  :deep(.el-button) {
+    border: none;
+    background: #f5f5f5;
+    color: #666;
+    transition: all 0.2s;
+
+    &:hover {
+      background: #e0e0e0;
+      color: #333;
+    }
+  }
+}
+
+.search-box {
+  flex: 1;
+  max-width: 400px;
+
+  :deep(.el-input__wrapper) {
+    border-radius: 20px;
+    background: #f5f5f5;
+    border: none;
+    box-shadow: none;
+    padding: 8px 15px;
+
+    &:hover {
+      background: #f0f0f0;
+    }
+
+    &.is-focus {
+      background: #fff;
+      box-shadow: 0 0 0 1px #C20C0C;
+    }
+  }
+
+  :deep(.el-input__inner) {
+    color: #333;
+    &::placeholder {
+      color: #999;
+    }
+  }
+}
+
+.user-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+// 头像上传区域样式
+.avatar-upload {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    .avatar-overlay {
+      opacity: 1;
+    }
+  }
+}
+
+.user-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.default-avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  color: #999;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+
+  .el-icon {
+    font-size: 18px;
+    color: #fff;
+  }
+}
+
+.username {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dropdown-arrow {
+  font-size: 12px;
+  color: #666;
+  transition: transform 0.2s;
+}
+
+/* 箭头旋转样式 - 仅在下拉菜单显示时生效 */
+.user-info .dropdown-arrow.arrow-rotated {
+  transform: rotate(180deg);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 4px;
+
+  :deep(.el-button) {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: #666;
+    transition: all 0.2s;
+
+    &:hover {
+      background: #f5f5f5;
+      color: #C20C0C;
+    }
+  }
+}
+
+// 下拉菜单中的用户数据样式
+.user-stats-dropdown {
+  display: flex;
+  justify-content: space-around;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+
+  .stat-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #999;
+    }
+  }
+
+  .stat-divider {
+    width: 1px;
+    background-color: #f0f0f0;
+  }
+}
+
+// 下拉菜单样式优化
+:deep(.el-dropdown-menu) {
+  .el-dropdown-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .el-icon {
+      font-size: 16px;
+    }
+  }
+}
+</style>

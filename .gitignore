@@ -1,0 +1,59 @@
+﻿# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+
+# Java - Maven
+YinBo-Server/target/
+*.log
+mvnw.cmd
+.mvn/
+
+# Node.js - Frontend
+YinBo-Client/node_modules/
+YinBo-Client/dist/
+YinBo-Client/.env.local
+YinBo-Client/package-lock.json
+
+YinBo-Admin/node_modules/
+YinBo-Admin/dist/
+YinBo-Admin/.env.local
+YinBo-Admin/package-lock.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+
+# Environment variables
+.env
+.env.production.local
+.env.development.local
+
+# MinIO data (if stored locally)
+minio_data/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# Build outputs
+build/
+out/
