@@ -25,6 +25,10 @@
   --accent-hover: #818cf8;
   --accent-muted: rgba(99, 102, 241, 0.15);
   --accent-glow: rgba(99, 102, 241, 0.25);
+
+  /* 卡片悬浮播放键：深色模式用白色，保证对比度 */
+  --play-overlay-btn-bg: rgba(255, 255, 255, 0.95);
+  --play-overlay-btn-color: #1a1a1a;
   --red: #ef4444;
   --green: #22c55e;
   --amber: #f59e0b;
@@ -332,6 +336,10 @@ input, textarea, select {
 
 /* --- Light Theme Override --- */
 [data-theme="light"] {
+  /* 卡片悬浮播放键：浅色模式用蓝色，保证对比度 */
+  --play-overlay-btn-bg: #4f46e5;
+  --play-overlay-btn-color: #fff;
+
   --bg-primary: #f5f6fa;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;

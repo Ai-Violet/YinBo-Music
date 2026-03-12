@@ -49,9 +49,11 @@
             <div class="cover-wrapper">
               <img :src="track.coverUrl || defaultCover" alt="封面" class="cover" />
               <div class="play-overlay">
-                <svg viewBox="0 0 24 24" width="36" height="36">
-                  <path fill="currentColor" d="M8 5v14l11-7z"/>
-                </svg>
+                <div class="play-btn-circle">
+                  <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
               </div>
             </div>
             <div class="track-info">
@@ -345,6 +347,17 @@ onMounted(() => {
 
 .track-card:hover .play-overlay {
   opacity: 1;
+}
+
+.play-overlay .play-btn-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .track-info {

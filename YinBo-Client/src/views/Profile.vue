@@ -251,7 +251,16 @@
           :style="{ animationDelay: `${index * 0.03}s` }"
           @click="playTrack(track)"
         >
-          <img :src="track.coverUrl || defaultCover" alt="封面" class="track-cover" @error="onCoverError" />
+          <div class="track-cover-wrapper">
+            <img :src="track.coverUrl || defaultCover" alt="封面" class="track-cover" @error="onCoverError" />
+            <div class="track-play-overlay">
+              <div class="track-play-btn">
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path fill="currentColor" d="M8 5v14l11-7z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
           <div class="track-info">
             <h4>{{ track.title }}</h4>
             <p><ArtistLink :artist-id="track.artistId" :artist-name="track.artist" /></p>
@@ -295,7 +304,16 @@
           :style="{ animationDelay: `${index * 0.03}s` }"
           @click="playTrack(track)"
         >
-          <img :src="track.coverUrl || defaultCover" alt="封面" class="track-cover" @error="onCoverError" />
+          <div class="track-cover-wrapper">
+            <img :src="track.coverUrl || defaultCover" alt="封面" class="track-cover" @error="onCoverError" />
+            <div class="track-play-overlay">
+              <div class="track-play-btn">
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path fill="currentColor" d="M8 5v14l11-7z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
           <div class="track-info">
             <h4>{{ track.title }}</h4>
             <p><ArtistLink :artist-id="track.artistId" :artist-name="track.artist" /></p>
@@ -1721,11 +1739,11 @@ onUnmounted(() => {
   width: 50px;
   height: 50px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent);
   transform: scale(0.8);
   transition: all var(--dur-normal);
   box-shadow: var(--shadow-sm);
@@ -1737,7 +1755,7 @@ onUnmounted(() => {
 
 .play-btn-circle:hover {
   transform: scale(1.1);
-  background: var(--text-primary);
+  opacity: 1;
 }
 
 .playlist-card .info {
@@ -1811,16 +1829,45 @@ onUnmounted(() => {
   background: var(--bg-hover);
 }
 
-.track-cover {
+.track-cover-wrapper {
+  position: relative;
   width: 48px;
   height: 48px;
+  flex-shrink: 0;
   border-radius: var(--radius-sm);
-  object-fit: cover;
-  transition: transform var(--dur-fast);
+  overflow: hidden;
 }
 
-.track-item:hover .track-cover {
-  transform: scale(1.02);
+.track-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.track-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.track-item:hover .track-play-overlay {
+  opacity: 1;
+}
+
+.track-play-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .track-info {

@@ -66,16 +66,23 @@
         </div>
         <div class="admin-form-group">
           <label>歌手头像</label>
-          <div class="avatar-upload" @click="triggerAvatarInput">
-            <input ref="avatarInput" type="file" accept="image/*" @change="handleAvatarSelect" hidden />
-            <img v-if="avatarPreview" :src="avatarPreview" alt="预览" class="avatar-preview" />
-            <img v-else-if="editId && currentAvatar" :src="currentAvatar" alt="当前头像" class="avatar-preview" />
-            <div v-else class="avatar-placeholder">
-              <span>点击上传</span>
+          <div class="avatar-upload-wrap">
+            <div class="avatar-upload" @click="triggerAvatarInput">
+              <input ref="avatarInput" type="file" accept="image/*" @change="handleAvatarSelect" hidden />
+              <img v-if="avatarPreview" :src="avatarPreview" alt="预览" class="avatar-preview" />
+              <img v-else-if="editId && currentAvatar" :src="currentAvatar" alt="当前头像" class="avatar-preview" />
+              <div v-else class="avatar-placeholder">
+                <span>点击上传</span>
+              </div>
+            </div>
+            <div v-if="avatarPreview || (editId && currentAvatar)" class="avatar-edit-actions">
+              <button type="button" class="edit-avatar-btn" @click="openAvatarCropper" title="裁剪/调整">
+                <span>编辑</span>
+              </button>
+              <button v-if="avatarPreview" type="button" class="clear-avatar-btn" @click="clearAvatar">清除</button>
             </div>
           </div>
-          <p class="avatar-hint">{{ editId && (currentAvatar || avatarPreview) ? '点击上方头像可更换' : '' }}</p>
-          <button v-if="avatarPreview" type="button" class="clear-avatar-btn" @click="clearAvatar">清除新选</button>
+          <p class="avatar-hint">{{ editId && (currentAvatar || avatarPreview) ? '点击头像可更换，点击「编辑」可裁剪调整' : '' }}</p>
         </div>
         <div class="admin-form-group">
           <label>简介（可选）</label>
@@ -89,12 +96,20 @@
         </div>
       </div>
     </div>
+
+    <!-- 头像裁剪弹窗 -->
+    <AvatarCropper
+      v-model="showAvatarCropper"
+      :image-url="avatarCropperImageUrl"
+      @confirm="handleAvatarCropConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { adminApi } from '../../api'
+import AvatarCropper from '../../components/AvatarCropper.vue'
 
 const defaultAvatar = 'https://via.placeholder.com/60?text=?'
 
@@ -113,6 +128,8 @@ const avatarFile = ref<File | null>(null)
 const avatarPreview = ref('')
 const currentAvatar = ref('')
 const avatarInput = ref<HTMLInputElement | null>(null)
+const showAvatarCropper = ref(false)
+const avatarCropperImageUrl = ref('')
 const saving = ref(false)
 
 const loadSingers = async () => {
@@ -150,12 +167,30 @@ const triggerAvatarInput = () => avatarInput.value?.click()
 const handleAvatarSelect = (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (file) {
-    avatarFile.value = file
     const reader = new FileReader()
-    reader.onload = () => { avatarPreview.value = reader.result as string }
+    reader.onload = () => {
+      avatarCropperImageUrl.value = reader.result as string
+      showAvatarCropper.value = true
+    }
     reader.readAsDataURL(file)
   }
   ;(e.target as HTMLInputElement).value = ''
+}
+
+const openAvatarCropper = () => {
+  const src = avatarPreview.value || currentAvatar.value
+  if (src) {
+    avatarCropperImageUrl.value = src
+    showAvatarCropper.value = true
+  }
+}
+
+const handleAvatarCropConfirm = (blob: Blob) => {
+  avatarFile.value = new File([blob], 'avatar.jpg', { type: 'image/jpeg' })
+  const reader = new FileReader()
+  reader.onload = () => { avatarPreview.value = reader.result as string }
+  reader.readAsDataURL(blob)
+  showAvatarCropper.value = false
 }
 
 const clearAvatar = () => {
@@ -313,6 +348,12 @@ onMounted(loadSingers)
 }
 .form-group textarea { resize: vertical; min-height: 60px; }
 
+.avatar-upload-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+}
 .avatar-upload {
   width: 100px;
   height: 100px;
@@ -330,13 +371,28 @@ onMounted(loadSingers)
   height: 100%;
   object-fit: cover;
 }
+.avatar-edit-actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+.edit-avatar-btn {
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--text-xs);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  color: var(--accent);
+}
+.edit-avatar-btn:hover {
+  background: var(--accent-muted);
+}
 .avatar-hint {
   margin: var(--sp-2) 0 0;
   font-size: var(--text-xs);
   color: var(--text-tertiary);
 }
 .clear-avatar-btn {
-  margin-top: var(--sp-2);
   padding: var(--sp-1) var(--sp-3);
   font-size: var(--text-xs);
   border: 1px solid var(--border);

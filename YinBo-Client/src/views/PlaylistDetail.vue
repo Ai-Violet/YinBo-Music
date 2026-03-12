@@ -102,60 +102,62 @@
       </div>
     </div>
 
-    <!-- 歌曲列表表头 -->
-    <div class="track-header">
-      <span v-if="isBatchMode" class="col-checkbox">
-        <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" />
-      </span>
-      <span class="col-index">#</span>
-      <span class="col-title">歌曲</span>
-      <span class="col-album">专辑</span>
-      <span class="col-like">喜欢</span>
-      <span class="col-duration">时长</span>
-      <span v-if="isOwner && !isBatchMode" class="col-action">操作</span>
-    </div>
-
-    <!-- 歌曲列表 -->
+    <!-- 歌曲列表（样式与主页最新音乐一致） -->
     <div class="track-list">
       <div 
         v-for="(track, index) in tracks" 
         :key="track.id" 
-        class="track-item"
+        class="track-row"
         :class="{ selected: selectedTrackIds.includes(track.id) }"
         @click="handleTrackClick(track, $event)"
       >
-        <span v-if="isBatchMode" class="col-checkbox" @click.stop="toggleTrackSelection(track.id)">
-          <input type="checkbox" :checked="selectedTrackIds.includes(track.id)" />
+        <span class="col-first">
+          <input v-if="isBatchMode" type="checkbox" :checked="selectedTrackIds.includes(track.id)" @click.stop="toggleTrackSelection(track.id)" />
+          <span v-else class="index">{{ index + 1 }}</span>
         </span>
-        <span class="col-index">{{ index + 1 }}</span>
-        <div class="col-title">
-          <img :src="track.coverUrl || defaultCover" alt="封面" class="track-cover" />
-          <div class="track-info">
-            <span class="track-name">{{ track.title }}</span>
-            <span class="track-artist"><ArtistLink :artist-id="track.artistId" :artist-name="track.artist" /></span>
+        <div class="row-cover-wrapper">
+          <img :src="track.coverUrl || defaultCover" alt="封面" class="row-cover" />
+          <div class="row-play-overlay">
+            <div class="row-play-btn">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor" d="M8 5v14l11-7z"/>
+              </svg>
+            </div>
           </div>
         </div>
-        <span class="col-album">{{ track.album || '-' }}</span>
-        <span class="col-like">
+        <div class="row-info">
+          <span class="title">{{ track.title }}</span>
+          <span class="artist"><ArtistLink :artist-id="track.artistId" :artist-name="track.artist" /></span>
+        </div>
+        <span class="duration">{{ formatDuration(track.duration) }}</span>
+        <div v-if="!isBatchMode" class="row-controls">
+          <button class="ctrl-btn" title="添加到歌单" @click.stop="showAddToPlaylist(track)">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn comment-btn" title="查看评论" @click.stop="goToComments(track)">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path fill="currentColor" d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/>
+            </svg>
+          </button>
           <button 
-            class="like-btn" 
+            class="ctrl-btn like-btn" 
             :class="{ liked: isFavorite(track.id) }"
+            :title="isFavorite(track.id) ? '取消收藏' : '收藏'"
             @click.stop="toggleFavorite(track)"
           >
-            <svg viewBox="0 0 24 24" width="18" height="18">
+            <svg viewBox="0 0 24 24" width="16" height="16">
               <path v-if="isFavorite(track.id)" fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               <path v-else fill="currentColor" d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/>
             </svg>
           </button>
-        </span>
-        <span class="col-duration">{{ formatDuration(track.duration) }}</span>
-        <span v-if="isOwner && !isBatchMode" class="col-action">
-          <button class="remove-btn" @click.stop="removeTrack(track.id)" title="从歌单移除">
+          <button v-if="isOwner" class="ctrl-btn remove-btn" title="从歌单移除" @click.stop="removeTrack(track.id)">
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
           </button>
-        </span>
+        </div>
       </div>
       
       <div v-if="tracks.length === 0" class="empty">
@@ -209,6 +211,44 @@
       :image-url="coverCropperImageUrl"
       @confirm="handleCoverCropConfirm"
     />
+
+    <!-- 添加到歌单弹窗 -->
+    <el-dialog
+      v-model="showAddToPlaylistDialog"
+      title="添加到歌单"
+      width="400px"
+      :close-on-click-modal="false"
+      class="dark-dialog"
+      modal-class="dark-modal"
+    >
+      <div class="add-to-playlist-content">
+        <div v-if="selectedTrack" class="selected-track-info">
+          <img :src="selectedTrack.coverUrl || defaultCover" alt="封面" class="track-cover-small" />
+          <div class="track-text">
+            <span class="track-title">{{ selectedTrack.title }}</span>
+            <span class="track-artist"><ArtistLink :artist-id="selectedTrack.artistId" :artist-name="selectedTrack.artist" /></span>
+          </div>
+        </div>
+        <div class="playlist-options">
+          <div class="playlist-option-header">选择歌单</div>
+          <div 
+            v-for="pl in addToPlaylistOptions" 
+            :key="pl.id" 
+            class="playlist-option-item"
+            @click="addTrackToPlaylist(pl.id)"
+          >
+            <img :src="pl.coverUrl || defaultCover" alt="封面" class="pl-cover" />
+            <div class="pl-info">
+              <span class="pl-name">{{ pl.name }}</span>
+              <span class="pl-count">{{ pl.trackCount || 0 }} 首</span>
+            </div>
+          </div>
+          <div v-if="addToPlaylistOptions.length === 0" class="no-playlists">
+            暂无其他歌单，请先创建
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -258,6 +298,11 @@ const coverCropperImageUrl = ref('')
 const showTransferModal = ref(false)
 const targetPlaylistId = ref<number | null>(null)
 
+// 添加到歌单弹窗
+const showAddToPlaylistDialog = ref(false)
+const selectedTrack = ref<any>(null)
+const addToPlaylistLoading = ref(false)
+
 // 计算属性
 const isOwner = computed(() => playlist.value?.ownerId === userStore.currentUser?.id)
 
@@ -281,6 +326,11 @@ const isAllSelected = computed(() => {
 })
 
 const otherPlaylists = computed(() => {
+  return userStore.myPlaylists.filter((p: any) => p.id !== Number(route.params.id))
+})
+
+// 添加到歌单时排除当前歌单
+const addToPlaylistOptions = computed(() => {
   return userStore.myPlaylists.filter((p: any) => p.id !== Number(route.params.id))
 })
 
@@ -417,6 +467,36 @@ const handleTrackClick = (track: any, event: MouseEvent) => {
     toggleTrackSelection(track.id)
   } else {
     playTrack(track)
+  }
+}
+
+// 查看评论 - 跳转到歌曲评论页
+const goToComments = (track: any) => {
+  router.push(`/track/${track.id}`)
+}
+
+// 添加到歌单
+const showAddToPlaylist = (track: any) => {
+  if (!userStore.currentUser) {
+    router.push('/login')
+    return
+  }
+  selectedTrack.value = track
+  showAddToPlaylistDialog.value = true
+}
+
+const addTrackToPlaylist = async (playlistId: number) => {
+  if (!selectedTrack.value) return
+  addToPlaylistLoading.value = true
+  try {
+    await playlistApi.addTrack(playlistId, selectedTrack.value.id)
+    ElMessage.success('已添加到歌单')
+    showAddToPlaylistDialog.value = false
+  } catch (e) {
+    console.error('Failed to add track to playlist:', e)
+    ElMessage.error('添加失败')
+  } finally {
+    addToPlaylistLoading.value = false
   }
 }
 
@@ -893,151 +973,288 @@ onMounted(() => {
   background: rgba(239, 68, 68, 0.15);
 }
 
-/* 歌曲列表表头 */
-.track-header {
+/* 歌曲列表（与主页最新音乐样式一致） */
+.track-list {
+  margin-top: var(--sp-2);
+  background: var(--bg-hover);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.track-row {
   display: flex;
   align-items: center;
-  padding: var(--sp-3) var(--sp-4);
+  gap: 15px;
+  padding: 14px var(--sp-5);
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
   border-bottom: 1px solid var(--border);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
 }
 
-.col-checkbox {
-  width: 40px;
+.track-row:last-child {
+  border-bottom: none;
+}
+
+.track-row:hover {
+  background: var(--accent-muted);
+}
+
+.track-row.selected {
+  background: var(--accent-muted);
+}
+
+.col-first {
+  width: 30px;
   text-align: center;
+  flex-shrink: 0;
 }
 
-.col-checkbox input {
+.col-first input[type="checkbox"] {
   width: 16px;
   height: 16px;
   cursor: pointer;
 }
 
-.col-index {
-  width: 40px;
-  text-align: center;
+.track-row .index {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-tertiary);
 }
 
-.col-title {
+.track-row:hover .index {
+  color: var(--accent);
+}
+
+.row-cover {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-fast);
+}
+
+.row-cover-wrapper {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+}
+
+.row-play-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-md);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.track-row:hover .row-play-overlay {
+  opacity: 1;
+}
+
+.row-play-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--dur-fast);
+}
+
+.row-play-btn:hover {
+  transform: scale(1.1);
+}
+
+.track-row:hover .row-cover {
+  transform: scale(1.05);
+}
+
+.row-info {
   flex: 1;
-  min-width: 200px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.col-album {
-  width: 150px;
+.row-info .title {
+  font-size: var(--text-base);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
 }
 
-.col-like {
-  width: 60px;
-  text-align: center;
+.row-info .artist {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
 }
 
-.col-duration {
-  width: 80px;
+.track-row .duration {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  min-width: 45px;
   text-align: right;
 }
 
-.col-action {
-  width: 60px;
-  text-align: center;
-}
-
-/* 歌曲列表 */
-.track-list {
-  margin-top: var(--sp-2);
-}
-
-.track-item {
+.row-controls {
   display: flex;
   align-items: center;
-  padding: var(--sp-3) var(--sp-4);
+  gap: 4px;
+}
+
+.row-controls .ctrl-btn {
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
   border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+
+.row-controls .ctrl-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.track-row:hover .row-controls .ctrl-btn {
+  opacity: 1;
+}
+
+.row-controls .ctrl-btn:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.row-controls .ctrl-btn.like-btn {
+  opacity: 1;
+  color: var(--text-tertiary);
+}
+
+.row-controls .ctrl-btn.like-btn.liked {
+  color: var(--red);
+}
+
+.row-controls .ctrl-btn.remove-btn:hover {
+  color: var(--red);
+}
+
+/* 添加到歌单弹窗 */
+.add-to-playlist-content {
+  padding: 10px 0;
+}
+
+.selected-track-info {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--sp-4);
+}
+
+.track-cover-small {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.add-to-playlist-content .track-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.add-to-playlist-content .track-title {
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.add-to-playlist-content .track-artist {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.playlist-options {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.playlist-option-header {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-2);
+}
+
+.playlist-option-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: background var(--dur-fast);
 }
 
-.track-item:hover {
-  background: var(--bg-hover);
+.playlist-option-item:hover {
+  background: var(--bg-active);
 }
 
-.track-item.selected {
-  background: var(--accent-muted);
-}
-
-.track-cover {
+.pl-cover {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-sm);
   object-fit: cover;
-  margin-right: var(--sp-3);
 }
 
-.track-info {
+.pl-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.track-name {
+.pl-name {
   font-size: var(--text-base);
   color: var(--text-primary);
 }
 
-.track-artist {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-.col-album {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-.like-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-full);
-  background: transparent;
+.pl-count {
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all var(--dur-normal);
 }
 
-.like-btn:hover {
-  color: var(--red);
-}
-
-.like-btn.liked {
-  color: var(--red);
-}
-
-.col-duration {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-.remove-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-full);
-  background: transparent;
+.no-playlists {
+  text-align: center;
+  padding: var(--sp-8);
   color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all var(--dur-normal);
-}
-
-.remove-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: var(--red);
+  font-size: var(--text-base);
 }
 
 /* 空状态 */

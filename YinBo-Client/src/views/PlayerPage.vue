@@ -154,14 +154,18 @@
           class="recommendation-card"
           @click="playRecommendedTrack(track)"
         >
-          <img :src="track.cover" :alt="track.title" class="rec-cover">
+          <div class="rec-cover-wrapper">
+            <img :src="track.cover" :alt="track.title" class="rec-cover">
+            <div class="rec-play-overlay">
+              <div class="rec-play-btn-circle">
+                <el-icon><VideoPlay /></el-icon>
+              </div>
+            </div>
+          </div>
           <div class="rec-info">
             <div class="rec-title">{{ track.title }}</div>
             <div class="rec-artist">{{ track.artist }}</div>
           </div>
-          <el-button circle size="small" class="rec-play-btn">
-            <el-icon><VideoPlay /></el-icon>
-          </el-button>
         </div>
       </div>
     </div>
@@ -752,11 +756,46 @@ onUnmounted(() => {
         transform: translateY(-2px);
       }
 
-      .rec-cover {
+      .rec-cover-wrapper {
+        position: relative;
         width: 48px;
         height: 48px;
+        flex-shrink: 0;
         border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .rec-cover {
+        width: 100%;
+        height: 100%;
         object-fit: cover;
+      }
+
+      .rec-play-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,0.4);
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+
+      .recommendation-card:hover .rec-play-overlay {
+        opacity: 1;
+      }
+
+      .rec-play-btn-circle {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--play-overlay-btn-bg);
+        color: var(--play-overlay-btn-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
       }
 
       .rec-info {
@@ -778,18 +817,6 @@ onUnmounted(() => {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-        }
-      }
-
-      .rec-play-btn {
-        width: 32px;
-        height: 32px;
-        background: #C20C0C;
-        border: none;
-        color: #fff;
-
-        &:hover {
-          background: #a00a0a;
         }
       }
     }

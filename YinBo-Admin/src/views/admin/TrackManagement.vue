@@ -89,16 +89,23 @@
         <div class="modal-body" v-if="editForm">
           <div class="form-group">
             <label>歌曲封面</label>
-            <div class="cover-upload" @click="triggerCoverInput">
-              <input ref="coverInput" type="file" accept="image/*" @change="handleCoverSelect" hidden />
-              <img v-if="coverPreview" :src="coverPreview" alt="新封面" class="cover-preview" />
-              <img v-else-if="editForm.coverUrl" :src="editForm.coverUrl" alt="当前封面" class="cover-preview" />
-              <div v-else class="cover-placeholder">
-                <span>点击上传</span>
+            <div class="cover-upload-wrap">
+              <div class="cover-upload" @click="triggerCoverInput">
+                <input ref="coverInput" type="file" accept="image/*" @change="handleCoverSelect" hidden />
+                <img v-if="coverPreview" :src="coverPreview" alt="新封面" class="cover-preview" />
+                <img v-else-if="editForm.coverUrl" :src="editForm.coverUrl" alt="当前封面" class="cover-preview" />
+                <div v-else class="cover-placeholder">
+                  <span>点击上传</span>
+                </div>
+              </div>
+              <div v-if="coverPreview || editForm.coverUrl" class="cover-edit-actions">
+                <button type="button" class="edit-cover-btn" @click="openCoverCropper" title="裁剪/调整">
+                  <span>编辑</span>
+                </button>
+                <button v-if="coverPreview" type="button" class="clear-cover-btn" @click="clearCover">清除</button>
               </div>
             </div>
-            <p class="cover-hint">{{ coverPreview || editForm.coverUrl ? '点击上方封面可更换' : '' }}</p>
-            <button v-if="coverPreview" type="button" class="clear-cover-btn" @click="clearCover">清除新选</button>
+            <p class="cover-hint">{{ coverPreview || editForm.coverUrl ? '点击封面可更换，点击「编辑」可裁剪调整' : '' }}</p>
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -139,12 +146,21 @@
         </div>
       </div>
     </div>
+
+    <!-- 封面裁剪弹窗 -->
+    <CoverCropper
+      v-model="showCoverCropper"
+      :image-url="coverCropperImageUrl"
+      :aspect-ratio="1"
+      @confirm="handleCoverCropConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { adminApi } from '../../api'
+import CoverCropper from '../../components/CoverCropper.vue'
 
 const defaultCover = 'https://via.placeholder.com/80?text=Music'
 
@@ -168,6 +184,8 @@ const saving = ref(false)
 const coverInput = ref<HTMLInputElement | null>(null)
 const coverFile = ref<File | null>(null)
 const coverPreview = ref('')
+const showCoverCropper = ref(false)
+const coverCropperImageUrl = ref('')
 let refreshTimer: number | null = null
 
 const getStatusClass = (status: number) => {
@@ -299,12 +317,30 @@ const triggerCoverInput = () => coverInput.value?.click()
 const handleCoverSelect = (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (file) {
-    coverFile.value = file
     const reader = new FileReader()
-    reader.onload = () => { coverPreview.value = reader.result as string }
+    reader.onload = () => {
+      coverCropperImageUrl.value = reader.result as string
+      showCoverCropper.value = true
+    }
     reader.readAsDataURL(file)
   }
   ;(e.target as HTMLInputElement).value = ''
+}
+
+const openCoverCropper = () => {
+  const src = coverPreview.value || editForm.value?.coverUrl
+  if (src) {
+    coverCropperImageUrl.value = src
+    showCoverCropper.value = true
+  }
+}
+
+const handleCoverCropConfirm = (blob: Blob) => {
+  coverFile.value = new File([blob], 'cover.jpg', { type: 'image/jpeg' })
+  const reader = new FileReader()
+  reader.onload = () => { coverPreview.value = reader.result as string }
+  reader.readAsDataURL(blob)
+  showCoverCropper.value = false
 }
 
 const clearCover = () => {
@@ -546,6 +582,12 @@ onUnmounted(() => {
 }
 .form-group textarea { min-height: 160px; resize: vertical; }
 
+.cover-upload-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+}
 .cover-upload {
   width: 120px;
   height: 120px;
@@ -563,13 +605,28 @@ onUnmounted(() => {
   height: 100%;
   object-fit: cover;
 }
+.cover-edit-actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+.edit-cover-btn {
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--text-xs);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  color: var(--accent);
+}
+.edit-cover-btn:hover {
+  background: var(--accent-muted);
+}
 .cover-hint {
   margin: var(--sp-2) 0 0;
   font-size: var(--text-xs);
   color: var(--text-tertiary);
 }
 .clear-cover-btn {
-  margin-top: var(--sp-2);
   padding: var(--sp-1) var(--sp-3);
   font-size: var(--text-xs);
   border: 1px solid var(--border);

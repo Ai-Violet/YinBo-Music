@@ -60,7 +60,10 @@
             <div v-show="showNotificationPanel" class="notification-panel" @click.stop>
               <div class="notification-panel-header">
                 <span>消息通知</span>
-                <button v-if="notifications.length > 0 && notificationUnreadCount > 0" class="mark-read-btn" @click="markNotificationsRead">全部已读</button>
+                <div class="panel-header-actions">
+                  <router-link v-if="userStore.currentUser" to="/notifications" class="view-all-btn" @click="showNotificationPanel = false">查看全部</router-link>
+                  <button v-if="notifications.length > 0 && notificationUnreadCount > 0" class="mark-read-btn" @click="markNotificationsRead">全部已读</button>
+                </div>
               </div>
               <div class="notification-list">
                 <template v-if="notifications.length > 0">
@@ -337,10 +340,43 @@
               @click="playFromList(rankingTracks, track)"
             >
               <span class="rank-num" :class="{ top3: index < 3 }">{{ index + 1 }}</span>
-              <img :src="track.coverUrl || defaultCover" alt="封面" class="rank-cover" />
+              <div class="rank-cover-wrapper">
+                <img :src="track.coverUrl || defaultCover" alt="封面" class="rank-cover" />
+                <div class="rank-play-overlay">
+                  <div class="rank-play-btn">
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                      <path fill="currentColor" d="M8 5v14l11-7z"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
               <div class="rank-info">
                 <span class="rank-title">{{ track.title }}</span>
                 <span class="rank-artist"><ArtistLink :artist-id="track.artistId" :artist-name="track.artist" /></span>
+              </div>
+              <span class="rank-duration">{{ formatDuration(track.duration) }}</span>
+              <div class="rank-controls">
+                <button class="ctrl-btn" title="添加到歌单" @click.stop="showAddToPlaylist(track)">
+                  <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                </button>
+                <button class="ctrl-btn comment-btn" title="查看评论" @click.stop="goToComments(track)">
+                  <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path fill="currentColor" d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/>
+                  </svg>
+                </button>
+                <button 
+                  class="ctrl-btn like-btn" 
+                  :class="{ liked: isFavorite(track.id) }"
+                  :title="isFavorite(track.id) ? '取消收藏' : '收藏'"
+                  @click.stop="toggleFavorite(track)"
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path v-if="isFavorite(track.id)" fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    <path v-else fill="currentColor" d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/>
+                  </svg>
+                </button>
               </div>
               <span class="rank-plays">{{ formatPlayCount(track.playCount) }} 次播放</span>
             </div>
@@ -1456,9 +1492,8 @@ const handleAvatarLoadError = (event: Event) => {
   target.src = defaultAvatar
 }
 
-// 打开评论弹窗 - 播放歌曲并打开评论
+// 打开评论弹窗 - 仅查看评论，不播放歌曲
 const goToComments = async (track: any) => {
-  playTrack(track)
   currentCommentTrack.value = track
   showCommentDrawer.value = true
   await loadCommentsForTrack(track.id)
@@ -1553,11 +1588,12 @@ const likeComment = async (comment: any) => {
       comment.isLiked = true
       comment.likeCount = oldCount + 1
     }
-  } catch (e) {
+  } catch (e: any) {
     comment.isLiked = oldLiked
     comment.likeCount = oldCount
     console.error('Like comment error:', e)
-    ElMessage.error('操作失败，请稍后重试')
+    const msg = e?.response?.data?.message || e?.message
+    ElMessage.error(msg || '操作失败，请稍后重试')
   }
 }
 
@@ -1600,7 +1636,8 @@ const submitReply = async () => {
     }
   } catch (e: any) {
     console.error('Submit reply error:', e)
-    ElMessage.error(e.response?.data?.message || '回复失败')
+    const msg = e?.response?.data?.message || e?.message
+    ElMessage.error(msg || '回复失败')
   } finally {
     submittingReply.value = false
   }
@@ -1964,6 +2001,22 @@ onBeforeUnmount(() => {
   font-weight: 600;
   font-size: 14px;
   color: var(--text-primary);
+}
+
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.view-all-btn {
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.view-all-btn:hover {
+  text-decoration: underline;
 }
 
 .mark-read-btn {
@@ -2429,12 +2482,45 @@ onBeforeUnmount(() => {
   font-size: var(--text-lg);
 }
 
-.rank-cover {
+.rank-cover-wrapper {
+  position: relative;
   width: 44px;
   height: 44px;
-  border-radius: var(--radius-md);
-  object-fit: cover;
   flex-shrink: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.rank-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rank-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.ranking-item:hover .rank-play-overlay {
+  opacity: 1;
+}
+
+.rank-play-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .rank-info {
@@ -2458,11 +2544,63 @@ onBeforeUnmount(() => {
   color: var(--text-tertiary);
 }
 
+.rank-duration {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  min-width: 45px;
+  text-align: right;
+}
+
 .rank-plays {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.rank-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rank-controls .ctrl-btn {
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+
+.rank-controls .ctrl-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ranking-item:hover .rank-controls .ctrl-btn {
+  opacity: 1;
+}
+
+.rank-controls .ctrl-btn:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.rank-controls .ctrl-btn.like-btn {
+  opacity: 1;
+  color: var(--text-tertiary);
+}
+
+.rank-controls .ctrl-btn.like-btn.liked {
+  color: var(--red);
 }
 
 .sidebar-toggle {
@@ -2622,11 +2760,11 @@ onBeforeUnmount(() => {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent);
   transform: scale(0.8);
   transition: all var(--dur-normal);
   box-shadow: var(--shadow-md);
@@ -2638,7 +2776,7 @@ onBeforeUnmount(() => {
 
 .play-btn-circle:hover {
   transform: scale(1.1);
-  background: #fff;
+  opacity: 1;
 }
 
 .track-info {
@@ -2804,7 +2942,8 @@ onBeforeUnmount(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2817,7 +2956,6 @@ onBeforeUnmount(() => {
 }
 
 .row-play-btn svg {
-  color: var(--bg-primary);
   margin-left: 2px;
 }
 

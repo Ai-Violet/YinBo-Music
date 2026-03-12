@@ -41,6 +41,12 @@ const routes: RouteRecordRaw[] = [
     redirect: '/profile?tab=comments'
   },
   {
+    path: '/notifications',
+    name: 'Notifications',
+    component: () => import('../views/Notifications.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/play-history',
     name: 'PlayHistory',
     component: () => import('../views/PlayHistory.vue'),

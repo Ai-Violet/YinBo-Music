@@ -316,10 +316,11 @@ const likeComment = async (comment: any) => {
       comment.isLiked = true
       comment.likeCount = oldCount + 1
     }
-  } catch (e) {
+  } catch (e: any) {
     comment.isLiked = oldLiked
     comment.likeCount = oldCount
-    ElMessage.error('操作失败')
+    const msg = e?.response?.data?.message || e?.message
+    ElMessage.error(msg || '操作失败，请稍后重试')
   }
 }
 
@@ -355,7 +356,8 @@ const submitReply = async () => {
       await loadComments()
     }
   } catch (e: any) {
-    ElMessage.error('回复失败')
+    const msg = e?.response?.data?.message || e?.message
+    ElMessage.error(msg || '回复失败')
   } finally {
     submittingReply.value = false
   }

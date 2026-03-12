@@ -77,9 +77,6 @@ service.interceptors.response.use(
   (error) => {
     console.error('Response error:', error)
 
-    // Get error message from response
-    const message = error.response?.data?.message || error.message || 'Request failed'
-    
     // If 401 unauthorized，根据实际使用的 token 移除（支持显式指定 useAdminToken 的请求）
     if (error.response?.status === 401) {
       const config = error.config
@@ -92,7 +89,8 @@ service.interceptors.response.use(
       }
     }
 
-    return Promise.reject(new Error(message))
+    // 保留原始 error，以便 catch 中能访问 error.response?.data?.message 显示后端返回的具体错误
+    return Promise.reject(error)
   }
 )
 

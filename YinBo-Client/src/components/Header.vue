@@ -40,7 +40,10 @@
           <div v-show="showNotificationPanel" class="notification-panel" @click.stop>
             <div class="notification-panel-header">
               <span>消息通知</span>
-              <button v-if="notifications.length > 0 && notificationUnreadCount > 0" class="mark-read-btn" @click="markNotificationsRead">全部已读</button>
+              <div class="panel-header-actions">
+                <router-link to="/notifications" class="view-all-btn" @click="showNotificationPanel = false">查看全部</router-link>
+                <button v-if="notifications.length > 0 && notificationUnreadCount > 0" class="mark-read-btn" @click="markNotificationsRead">全部已读</button>
+              </div>
             </div>
             <div class="notification-list">
               <template v-if="notifications.length > 0">
@@ -687,8 +690,22 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid #e5e7eb;
-  font-weight: 600;
-  font-size: 14px;
+}
+
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.view-all-btn {
+  font-size: 12px;
+  color: #667eea;
+  text-decoration: none;
+}
+
+.view-all-btn:hover {
+  text-decoration: underline;
 }
 
 .mark-read-btn {

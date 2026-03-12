@@ -14,7 +14,16 @@
         class="history-item"
         @click="playTrack(item.track)"
       >
-        <img :src="item.track.coverUrl || defaultCover" alt="封面" class="track-cover" />
+        <div class="track-cover-wrapper">
+          <img :src="item.track.coverUrl || defaultCover" alt="封面" class="track-cover" />
+          <div class="track-play-overlay">
+            <div class="track-play-btn">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path fill="currentColor" d="M8 5v14l11-7z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
         <div class="track-info">
           <h4>{{ item.track.title }}</h4>
           <p><ArtistLink :artist-id="item.track.artistId" :artist-name="item.track.artist" /></p>
@@ -187,12 +196,45 @@ onMounted(() => {
   transform: translateX(5px);
 }
 
-.track-cover {
+.track-cover-wrapper {
+  position: relative;
   width: 50px;
   height: 50px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
   flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.track-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.track-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.history-item:hover .track-play-overlay {
+  opacity: 1;
+}
+
+.track-play-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .track-info {

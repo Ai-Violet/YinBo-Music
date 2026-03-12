@@ -559,11 +559,11 @@ onMounted(async () => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
 }
 .row-info {
   flex: 1;

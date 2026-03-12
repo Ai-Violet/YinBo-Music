@@ -115,6 +115,11 @@
               <path fill="currentColor" d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/>
             </svg>
           </button>
+          <button class="control-btn add-to-playlist-btn" @click="showAddToPlaylistDialogAction" title="添加到歌单">
+            <svg viewBox="0 0 24 24" width="22" height="22">
+              <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+          </button>
         </div>
 
         <!-- 中间居中：播放模式 | 上一首 | 播放 | 下一首 | 音量 -->
@@ -185,6 +190,41 @@
         </div>
       </div>
     </footer>
+
+    <!-- 添加到歌单弹窗 -->
+    <el-dialog
+      v-model="showAddToPlaylistDialog"
+      title="添加到歌单"
+      width="400px"
+      :close-on-click-modal="false"
+      class="playlist-add-dialog"
+    >
+      <div v-if="currentTrack" class="add-to-playlist-content">
+        <div class="selected-track-info">
+          <img :src="currentTrack.coverUrl || defaultCover" alt="封面" class="track-cover-small" />
+          <div class="track-text">
+            <span class="track-title">{{ currentTrack.title }}</span>
+            <span class="track-artist"><ArtistLink :artist-id="currentTrack.artistId" :artist-name="currentTrack.artist || ''" /></span>
+          </div>
+        </div>
+        <div class="playlist-options">
+          <div class="playlist-option-header">选择歌单</div>
+          <div
+            v-for="pl in myPlaylists"
+            :key="pl.id"
+            class="playlist-option-item"
+            @click="addTrackToPlaylist(pl.id)"
+          >
+            <img :src="pl.coverUrl || defaultCover" alt="封面" class="pl-cover" />
+            <div class="pl-info">
+              <span class="pl-name">{{ pl.name }}</span>
+              <span class="pl-count">{{ pl.trackCount || 0 }} 首</span>
+            </div>
+          </div>
+          <div v-if="myPlaylists.length === 0" class="no-playlists">暂无歌单，请先创建歌单</div>
+        </div>
+      </div>
+    </el-dialog>
 
     <!-- 评论抽屉 -->
     <el-drawer
@@ -401,7 +441,7 @@ import { useRouter } from 'vue-router'
 import { usePlayerStore } from '../stores/player'
 import { useUserStore } from '../stores/user'
 import { storeToRefs } from 'pinia'
-import { favoriteApi, commentApi, trackApi } from '../api'
+import { favoriteApi, commentApi, trackApi, playlistApi } from '../api'
 import { ElMessage } from 'element-plus'
 import ArtistLink from '../components/ArtistLink.vue'
 import { VideoPlay } from '@element-plus/icons-vue'
@@ -429,6 +469,41 @@ const currentLyricIndex = ref(0)
 const lyricsContainer = ref<HTMLElement | null>(null)
 const progressBar = ref<HTMLElement | null>(null)
 const previousVolume = ref(80)
+
+// 添加到歌单
+const showAddToPlaylistDialog = ref(false)
+const myPlaylists = ref<any[]>([])
+
+const showAddToPlaylistDialogAction = async () => {
+  if (!currentTrack.value) return
+  if (!userStore.currentUser) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  showAddToPlaylistDialog.value = true
+  try {
+    const res = await playlistApi.getMyPlaylists(1, 100)
+    if (res.data.code === 200) {
+      const data = res.data.data
+      myPlaylists.value = Array.isArray(data) ? data : (data?.records || [])
+    }
+  } catch (e) {
+    myPlaylists.value = []
+  }
+}
+
+const addTrackToPlaylist = async (playlistId: number) => {
+  if (!currentTrack.value) return
+  try {
+    await playlistApi.addTrack(playlistId, currentTrack.value.id)
+    ElMessage.success('已添加到歌单')
+    showAddToPlaylistDialog.value = false
+  } catch (e: any) {
+    console.error('Add to playlist failed:', e)
+    ElMessage.error(e.response?.data?.message || '添加失败')
+  }
+}
 
 // 播放列表
 const showPlaylistDrawer = ref(false)
@@ -831,11 +906,12 @@ const likeComment = async (comment: any) => {
       comment.isLiked = true
       comment.likeCount = oldCount + 1
     }
-  } catch (e) {
+  } catch (e: any) {
     comment.isLiked = oldLiked
     comment.likeCount = oldCount
     console.error('Like comment error:', e)
-    ElMessage.error('操作失败，请稍后重试')
+    const msg = e?.response?.data?.message || e?.message
+    ElMessage.error(msg || '操作失败，请稍后重试')
   }
 }
 
@@ -875,7 +951,8 @@ const submitReply = async () => {
     }
   } catch (e: any) {
     console.error('Submit reply error:', e)
-    ElMessage.error(e.response?.data?.message || '回复失败')
+    const msg = e?.response?.data?.message || e?.message
+    ElMessage.error(msg || '回复失败')
   } finally {
     submittingReply.value = false
   }
@@ -1426,6 +1503,10 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
+.player-footer .controls-section .add-to-playlist-btn {
+  margin-left: var(--sp-1);
+}
+
 .player-footer .controls-section .play-btn {
   width: 60px;
   height: 60px;
@@ -1498,6 +1579,108 @@ onUnmounted(() => {
     width: 52px;
     height: 52px;
   }
+}
+
+/* 添加到歌单弹窗 */
+.playlist-add-dialog :deep(.el-dialog) {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+}
+.playlist-add-dialog :deep(.el-dialog__header) {
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+.playlist-add-dialog :deep(.el-dialog__body) {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+.playlist-add-dialog :deep(.el-dialog__close) {
+  color: var(--text-tertiary);
+}
+.playlist-add-dialog .add-to-playlist-content {
+  padding: 10px 0;
+}
+.playlist-add-dialog .selected-track-info {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--sp-4);
+}
+.playlist-add-dialog .track-cover-small {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+.playlist-add-dialog .track-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+.playlist-add-dialog .track-text .track-title {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.playlist-add-dialog .track-text .track-artist {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+.playlist-add-dialog .playlist-options {
+  max-height: 300px;
+  overflow-y: auto;
+}
+.playlist-add-dialog .playlist-option-header {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-2);
+}
+.playlist-add-dialog .playlist-option-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.playlist-add-dialog .playlist-option-item:hover {
+  background: var(--bg-active);
+}
+.playlist-add-dialog .pl-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+.playlist-add-dialog .pl-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.playlist-add-dialog .pl-name {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.playlist-add-dialog .pl-count {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+.playlist-add-dialog .no-playlists {
+  padding: var(--sp-6);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
 
 .comment-drawer :deep(.el-drawer) {

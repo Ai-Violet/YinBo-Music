@@ -59,6 +59,32 @@
               </el-icon>
             </el-button>
             <span class="track-time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+            <el-button
+              circle
+              class="control-btn comment-btn"
+              :disabled="!currentTrack"
+              title="查看评论"
+              @click="openCommentDrawer"
+            >
+              <el-icon>
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path fill="currentColor" d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/>
+                </svg>
+              </el-icon>
+            </el-button>
+            <el-button
+              circle
+              class="control-btn add-to-playlist-btn"
+              :disabled="!currentTrack"
+              title="添加到歌单"
+              @click="showAddToPlaylistDialogAction"
+            >
+              <el-icon>
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+              </el-icon>
+            </el-button>
           </div>
         </div>
       </div>
@@ -100,19 +126,6 @@
 
       <!-- 右侧：往右端靠 -->
       <div class="player-right">
-        <el-button
-          circle
-          class="control-btn comment-btn"
-          :disabled="!currentTrack"
-          title="查看评论"
-          @click="openCommentDrawer"
-        >
-          <el-icon>
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor" d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/>
-            </svg>
-          </el-icon>
-        </el-button>
         <div class="sleep-wrapper" ref="sleepWrapper">
           <el-button circle class="control-btn sleep-btn" :class="{ active: playerStore.sleepMode !== 'off' }" @click="toggleSleepPopup" title="睡眠定时">
             <el-icon><component :is="TimerIcon" /></el-icon>
@@ -142,6 +155,41 @@
 
     <!-- 评论抽屉 -->
     <TrackCommentDrawer v-model="showCommentDrawer" :track="currentTrack" />
+
+    <!-- 添加到歌单弹窗 -->
+    <el-dialog
+      v-model="showAddToPlaylistDialog"
+      title="添加到歌单"
+      width="400px"
+      :close-on-click-modal="false"
+      class="playlist-add-dialog"
+    >
+      <div v-if="currentTrack" class="add-to-playlist-content">
+        <div class="selected-track-info">
+          <img :src="currentTrack.coverUrl || defaultCover" alt="封面" class="track-cover-small" />
+          <div class="track-text">
+            <span class="track-title">{{ currentTrack.title }}</span>
+            <span class="track-artist"><ArtistLink :artist-id="currentTrack.artistId" :artist-name="currentTrack.artist || ''" /></span>
+          </div>
+        </div>
+        <div class="playlist-options">
+          <div class="playlist-option-header">选择歌单</div>
+          <div
+            v-for="pl in myPlaylists"
+            :key="pl.id"
+            class="playlist-option-item"
+            @click="addTrackToPlaylist(pl.id)"
+          >
+            <img :src="pl.coverUrl || defaultCover" alt="封面" class="pl-cover" />
+            <div class="pl-info">
+              <span class="pl-name">{{ pl.name }}</span>
+              <span class="pl-count">{{ pl.trackCount || 0 }} 首</span>
+            </div>
+          </div>
+          <div v-if="myPlaylists.length === 0" class="no-playlists">暂无歌单，请先创建歌单</div>
+        </div>
+      </div>
+    </el-dialog>
 
     <!-- 播放列表抽屉 -->
     <el-drawer v-model="showPlaylistDrawer" title="播放列表" direction="rtl" size="380px" class="playlist-drawer">
@@ -196,7 +244,7 @@ import TrackCommentDrawer from './TrackCommentDrawer.vue'
 import ArtistLink from './ArtistLink.vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { favoriteApi } from '../api'
+import { favoriteApi, playlistApi } from '../api'
 import { ElMessage } from 'element-plus'
 import { DEFAULT_AVATAR_COVER } from '../constants'
 
@@ -303,6 +351,39 @@ watch(currentTrack, checkTextOverflow, { immediate: true })
 
 const showCommentDrawer = ref(false)
 const showPlaylistDrawer = ref(false)
+const showAddToPlaylistDialog = ref(false)
+const myPlaylists = ref<any[]>([])
+
+const showAddToPlaylistDialogAction = async () => {
+  if (!currentTrack.value) return
+  if (!userStore.currentUser) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  showAddToPlaylistDialog.value = true
+  try {
+    const res = await playlistApi.getMyPlaylists(1, 100)
+    if (res.data.code === 200) {
+      const data = res.data.data
+      myPlaylists.value = Array.isArray(data) ? data : (data?.records || [])
+    }
+  } catch (e) {
+    myPlaylists.value = []
+  }
+}
+
+const addTrackToPlaylist = async (playlistId: number) => {
+  if (!currentTrack.value) return
+  try {
+    await playlistApi.addTrack(playlistId, currentTrack.value.id)
+    ElMessage.success('已添加到歌单')
+    showAddToPlaylistDialog.value = false
+  } catch (e: any) {
+    console.error('Add to playlist failed:', e)
+    ElMessage.error(e.response?.data?.message || '添加失败')
+  }
+}
 const playlistWithCurrent = computed(() =>
   playerStore.playlist.map(track => ({
     ...track,
@@ -842,7 +923,10 @@ onUnmounted(() => {
 .control-btn :deep(.el-icon) { font-size: 18px; }
 
 /* 播放模式按钮：文字+图标，直观易懂 */
-/* 评论按钮 */
+/* 评论按钮（在封面区域，爱心和时长右侧） */
+.cover-adjacent .comment-btn {
+  margin-left: var(--sp-1);
+}
 .comment-btn {
   color: var(--text-tertiary);
 }
@@ -850,6 +934,20 @@ onUnmounted(() => {
   color: var(--accent);
 }
 .comment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cover-adjacent .add-to-playlist-btn {
+  margin-left: var(--sp-1);
+}
+.add-to-playlist-btn {
+  color: var(--text-tertiary);
+}
+.add-to-playlist-btn:hover:not(:disabled) {
+  color: var(--accent);
+}
+.add-to-playlist-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -976,4 +1074,106 @@ onUnmounted(() => {
 
 :deep(.el-icon) svg { width: 1em; height: 1em; fill: currentColor; }
 :deep(.el-icon) { display: inline-flex; align-items: center; justify-content: center; }
+
+/* 添加到歌单弹窗 */
+.playlist-add-dialog :deep(.el-dialog) {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+}
+.playlist-add-dialog :deep(.el-dialog__header) {
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+.playlist-add-dialog :deep(.el-dialog__body) {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+.playlist-add-dialog :deep(.el-dialog__close) {
+  color: var(--text-tertiary);
+}
+.add-to-playlist-content {
+  padding: 10px 0;
+}
+.selected-track-info {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--sp-4);
+}
+.track-cover-small {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+.track-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+.track-text .track-title {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track-text .track-artist {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+.playlist-options {
+  max-height: 300px;
+  overflow-y: auto;
+}
+.playlist-option-header {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-2);
+}
+.playlist-option-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.playlist-option-item:hover {
+  background: var(--bg-active);
+}
+.pl-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+.pl-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pl-name {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.pl-count {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+.no-playlists {
+  padding: var(--sp-6);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
 </style>

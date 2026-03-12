@@ -51,7 +51,16 @@
           :style="{ animationDelay: `${index * 0.03}s` }"
           @click="playTrack(track)"
         >
-          <img :src="track.coverUrl || defaultCover" alt="封面" class="track-cover" @error="onCoverError" />
+          <div class="track-cover-wrapper">
+            <img :src="track.coverUrl || defaultCover" alt="封面" class="track-cover" @error="onCoverError" />
+            <div class="track-play-overlay">
+              <div class="track-play-btn">
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path fill="currentColor" d="M8 5v14l11-7z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
           <div class="track-info">
             <h4>{{ track.title }}</h4>
             <p>{{ track.artist }}</p>
@@ -470,11 +479,45 @@ watch([() => route.params.id, () => route.query.name], async () => {
   transform: translateX(4px);
 }
 
-.track-cover {
+.track-cover-wrapper {
+  position: relative;
   width: 50px;
   height: 50px;
+  flex-shrink: 0;
   border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.track-cover {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+}
+
+.track-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.track-item:hover .track-play-overlay {
+  opacity: 1;
+}
+
+.track-play-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .track-info {

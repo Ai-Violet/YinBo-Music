@@ -1,6 +1,7 @@
 package com.yinbo.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -18,6 +19,7 @@ public class Notification {
     private Long refId;
     private String refType;
     private String extra;
+    @TableField("`read`")
     private Integer read;
     private LocalDateTime createdAt;
 }

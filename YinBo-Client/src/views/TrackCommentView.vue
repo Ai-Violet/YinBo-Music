@@ -7,7 +7,16 @@
     <div v-else-if="!track" class="error">歌曲不存在</div>
     <div v-else class="content">
       <div class="track-card" @click="playTrack">
-        <img :src="track.coverUrl || track.cover || defaultCover" alt="封面" class="cover" />
+        <div class="cover-wrapper">
+          <img :src="track.coverUrl || track.cover || defaultCover" alt="封面" class="cover" />
+          <div class="play-overlay">
+            <div class="play-btn-circle">
+              <svg viewBox="0 0 24 24" width="28" height="28">
+                <path fill="currentColor" d="M8 5v14l11-7z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
         <div class="track-info">
           <h2>{{ track.title }}</h2>
           <p>{{ track.artist }}</p>
@@ -111,11 +120,45 @@ watch(() => route.params.id, loadTrack)
   background: var(--bg-elevated);
 }
 
-.cover {
+.cover-wrapper {
+  position: relative;
   width: 100px;
   height: 100px;
+  flex-shrink: 0;
   border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.cover {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+}
+
+.play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.track-card:hover .play-overlay {
+  opacity: 1;
+}
+
+.play-btn-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .track-info {
