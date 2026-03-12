@@ -47,4 +47,17 @@ public class NotificationServiceImpl implements NotificationService {
     public void markAllRead(Long userId) {
         notificationMapper.markAllReadByUserId(userId);
     }
+
+    @Override
+    public void deleteById(Long notificationId, Long userId) {
+        Notification n = notificationMapper.selectById(notificationId);
+        if (n != null && n.getUserId().equals(userId)) {
+            notificationMapper.deleteById(notificationId);
+        }
+    }
+
+    @Override
+    public void deleteAllByUserId(Long userId) {
+        notificationMapper.delete(new LambdaQueryWrapper<Notification>().eq(Notification::getUserId, userId));
+    }
 }

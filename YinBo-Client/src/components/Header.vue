@@ -298,16 +298,18 @@ const handleNotificationClick = (n: NotificationItem) => {
   }
   if (n.type === 'FOLLOW' && n.fromUserId) {
     router.push(`/profile/${n.fromUserId}`)
-  } else if (n.extra) {
+  } else if ((n.type === 'COMMENT' || n.type === 'COMMENT_REPLY' || n.type === 'LIKE' || n.type === 'FAVORITE') && n.extra) {
     router.push(`/track/${n.extra}`)
   }
 }
 
 const formatNotificationText = (n: NotificationItem) => {
   const name = n.fromUserNickname || '某人'
-  if (n.type === 'FOLLOW') return `${name} 关注了你`
+  if (n.type === 'FOLLOW') return `${name} 关注了你，成为了你的粉丝`
+  if (n.type === 'COMMENT') return `${name} 评论了你的歌曲`
   if (n.type === 'COMMENT_REPLY') return `${name} 回复了你的评论`
   if (n.type === 'LIKE') return `${name} 赞了你的评论`
+  if (n.type === 'FAVORITE') return `${name} 收藏了你的歌曲`
   return ''
 }
 
@@ -531,14 +533,23 @@ watch(isLoggedIn, (v) => {
   if (v) fetchUnreadCount()
 })
 
+const onNotificationsChanged = () => {
+  if (isLoggedIn.value) {
+    fetchUnreadCount()
+    if (showNotificationPanel.value) fetchNotifications()
+  }
+}
+
 onMounted(() => {
   fetchUserInfo()
   if (isLoggedIn.value) fetchUnreadCount()
   document.addEventListener('click', handleClickOutside)
+  window.addEventListener('yinbo:notifications-changed', onNotificationsChanged)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('yinbo:notifications-changed', onNotificationsChanged)
 })
 </script>
 

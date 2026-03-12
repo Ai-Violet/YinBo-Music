@@ -398,6 +398,12 @@ export const notificationApi = {
   },
   markAllRead() {
     return request.put<ApiResponse<void>>('/notifications/me/read')
+  },
+  deleteOne(id: number) {
+    return request.delete<ApiResponse<void>>(`/notifications/me/${id}`)
+  },
+  clearAll() {
+    return request.delete<ApiResponse<void>>('/notifications/me')
   }
 }
 

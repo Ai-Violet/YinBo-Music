@@ -8,4 +8,6 @@ public interface NotificationService {
     IPage<Notification> getMyNotifications(Long userId, int page, int size);
     int getUnreadCount(Long userId);
     void markAllRead(Long userId);
+    void deleteById(Long notificationId, Long userId);
+    void deleteAllByUserId(Long userId);
 }

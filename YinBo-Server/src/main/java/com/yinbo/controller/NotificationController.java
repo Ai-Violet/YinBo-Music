@@ -60,6 +60,22 @@ public class NotificationController {
         return Result.success();
     }
 
+    @Operation(summary = "Delete single notification")
+    @DeleteMapping("/me/{id}")
+    public Result<Void> deleteById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CurrentUser user) {
+        notificationService.deleteById(id, user.getUserId());
+        return Result.success();
+    }
+
+    @Operation(summary = "Clear all notifications")
+    @DeleteMapping("/me")
+    public Result<Void> deleteAll(@AuthenticationPrincipal CurrentUser user) {
+        notificationService.deleteAllByUserId(user.getUserId());
+        return Result.success();
+    }
+
     private NotificationDTO toDTO(Notification n) {
         NotificationDTO dto = new NotificationDTO();
         dto.setId(n.getId());

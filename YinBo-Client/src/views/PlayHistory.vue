@@ -7,40 +7,35 @@
       </button>
     </div>
 
-    <div class="history-list" v-if="history.length > 0">
+    <div class="profile-track-list" v-if="history.length > 0">
       <div 
-        v-for="item in history" 
-        :key="item.id" 
-        class="history-item"
-        @click="playTrack(item.track)"
+        v-for="(item, index) in history" 
+        :key="item.historyId || item.id + '-' + index" 
+        class="track-row slide-in-left"
+        :style="{ animationDelay: `${index * 0.03}s` }"
+        @click="playTrack(item)"
       >
-        <div class="track-cover-wrapper">
-          <img :src="item.track.coverUrl || defaultCover" alt="封面" class="track-cover" />
-          <div class="track-play-overlay">
-            <div class="track-play-btn">
-              <svg viewBox="0 0 24 24" width="20" height="20">
+        <span class="index">{{ index + 1 }}</span>
+        <div class="row-cover-wrapper">
+          <img :src="item.coverUrl || defaultCover" alt="封面" class="row-cover" @error="onCoverError" />
+          <div class="row-play-overlay">
+            <div class="row-play-btn">
+              <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor" d="M8 5v14l11-7z"/>
               </svg>
             </div>
           </div>
         </div>
-        <div class="track-info">
-          <h4>{{ item.track.title }}</h4>
-          <p><ArtistLink :artist-id="item.track.artistId" :artist-name="item.track.artist" /></p>
+        <div class="row-info">
+          <span class="title">{{ item.title }}</span>
+          <span class="artist"><ArtistLink :artist-id="item.artistId" :artist-name="item.artist" /></span>
         </div>
-        <div class="play-info">
-          <span class="play-time">播放 {{ item.playCount || 1 }} 次</span>
-          <span class="last-play">最近: {{ formatTime(item.lastPlayedAt) }}</span>
-        </div>
-        <div class="item-actions">
-          <button class="play-btn" @click.stop="playTrack(item.track)" title="播放">
-            <svg viewBox="0 0 24 24" width="24" height="24">
-              <path fill="currentColor" d="M8 5v14l11-7z"/>
-            </svg>
-          </button>
-          <button class="delete-btn" @click.stop="deleteHistoryItem(item.id)" title="删除记录">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+        <span class="duration">{{ formatDuration(item.duration) }}</span>
+        <span class="play-time">{{ formatTime(item.playedAt) }}</span>
+        <div class="row-controls">
+          <button class="ctrl-btn delete-btn" title="删除记录" @click.stop="deleteHistoryItem(item.historyId)">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/>
             </svg>
           </button>
         </div>
@@ -96,17 +91,36 @@ const loadHistory = async () => {
   try {
     const res = await userApi.getPlayHistory(page.value, pageSize.value)
     if (res.data.code === 200) {
-      history.value = res.data.data.records || []
-      total.value = res.data.data.total || 0
+      const data = res.data.data
+      const raw = Array.isArray(data) ? data : (data?.records || [])
+      history.value = raw.map((t: any) => ({
+        ...t,
+        coverUrl: t.coverUrl || t.cover,
+        playUrl: t.playUrl || t.url,
+        url: t.playUrl || t.url,
+        artistId: t.artistId ?? t.singerId
+      }))
+      total.value = data?.total ?? (Array.isArray(data) ? data.length : 0)
     }
   } catch (e) {
     console.error('Failed to load history:', e)
   }
 }
 
+const formatDuration = (seconds?: number) => {
+  if (!seconds) return '-'
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+const onCoverError = (e: Event) => {
+  const el = e.target as HTMLImageElement
+  if (el) el.src = defaultCover
+}
+
 const playTrack = (track: any) => {
-  playerStore.setCurrentTrack(track)
-  playerStore.play()
+  playerStore.setPlaylistAndPlay(history.value, track)
 }
 
 const clearHistory = async () => {
@@ -125,8 +139,7 @@ const clearHistory = async () => {
 const deleteHistoryItem = async (historyId: number) => {
   try {
     await userApi.deletePlayHistoryItem(historyId)
-    // 从列表中移除
-    history.value = history.value.filter(item => item.id !== historyId)
+    history.value = history.value.filter(item => item.historyId !== historyId)
     total.value--
   } catch (e) {
     console.error('Failed to delete history item:', e)
@@ -174,150 +187,179 @@ onMounted(() => {
   background: rgba(239, 68, 68, 0.3);
 }
 
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-.history-item {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  padding: var(--sp-4) var(--sp-5);
+.slide-in-left {
+  animation: slideInLeft 0.4s var(--ease-out) forwards;
+  opacity: 0;
+}
+
+.profile-track-list {
   background: var(--bg-hover);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--dur-normal) var(--ease-out);
-}
-
-.history-item:hover {
-  background: var(--border-hover);
-  transform: translateX(5px);
-}
-
-.track-cover-wrapper {
-  position: relative;
-  width: 50px;
-  height: 50px;
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
-.track-cover {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.profile-track-list .track-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 14px var(--sp-5);
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
+  border-bottom: 1px solid var(--border);
 }
 
-.track-play-overlay {
+.profile-track-list .track-row:last-child {
+  border-bottom: none;
+}
+
+.profile-track-list .track-row:hover {
+  background: var(--accent-muted);
+}
+
+.profile-track-list .track-row .index {
+  width: 30px;
+  text-align: center;
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.profile-track-list .track-row:hover .index {
+  color: var(--accent);
+}
+
+.profile-track-list .row-cover {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-fast);
+}
+
+.profile-track-list .row-cover-wrapper {
+  position: relative;
+  width: 50px;
+  height: 50px;
+}
+
+.profile-track-list .row-play-overlay {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-md);
   opacity: 0;
   transition: opacity var(--dur-fast);
 }
 
-.history-item:hover .track-play-overlay {
+.profile-track-list .track-row:hover .row-play-overlay {
   opacity: 1;
 }
 
-.track-play-btn {
-  width: 28px;
-  height: 28px;
+.profile-track-list .row-play-btn {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--play-overlay-btn-bg);
   color: var(--play-overlay-btn-color);
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  transition: transform var(--dur-fast);
 }
 
-.track-info {
+.profile-track-list .row-play-btn:hover {
+  transform: scale(1.1);
+}
+
+.profile-track-list .row-play-btn svg {
+  margin-left: 2px;
+}
+
+.profile-track-list .track-row:hover .row-cover {
+  transform: scale(1.05);
+}
+
+.profile-track-list .row-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.track-info h4 {
-  margin: 0 0 var(--sp-1);
+.profile-track-list .row-info .title {
   font-size: var(--text-base);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.track-info p {
-  margin: 0;
-  font-size: var(--text-sm);
+.profile-track-list .row-info .artist {
+  font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 
-.play-info {
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.play-time {
-  display: block;
+.profile-track-list .duration {
   font-size: var(--text-sm);
-  color: var(--accent);
-  margin-bottom: var(--sp-1);
+  color: var(--text-tertiary);
+  min-width: 45px;
+  text-align: right;
 }
 
-.last-play {
+.profile-track-list .play-time {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
+  min-width: 70px;
+  text-align: right;
 }
 
-.play-btn {
-  width: 40px;
-  height: 40px;
+.profile-track-list .row-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.profile-track-list .row-controls .ctrl-btn {
+  background: transparent;
   border: none;
-  background: var(--accent);
-  color: var(--text-primary);
-  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all var(--dur-normal) var(--ease-out);
-}
-
-.play-btn:hover {
-  background: var(--accent-hover);
-  transform: scale(1.1);
-}
-
-.item-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-
-.delete-btn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--red);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all var(--dur-normal) var(--ease-out);
+  padding: var(--sp-2);
+  border-radius: 50%;
+  transition: all var(--dur-fast);
   opacity: 0;
 }
 
-.history-item:hover .delete-btn {
+.profile-track-list .track-row:hover .row-controls .ctrl-btn {
   opacity: 1;
 }
 
-.delete-btn:hover {
-  background: rgba(239, 68, 68, 0.25);
-  transform: scale(1.1);
+.profile-track-list .row-controls .ctrl-btn:hover {
+  color: var(--accent);
+}
+
+.profile-track-list .row-controls .ctrl-btn.delete-btn:hover {
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .empty {

@@ -77,6 +77,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         log.info("User {} added comment to track {}", userId, trackId);
 
         if (parentId != null) {
+            // 回复评论：通知被回复者
             Comment parent = commentMapper.selectById(parentId);
             if (parent != null) {
                 Long notifyUserId = (replyToUserId != null && !replyToUserId.equals(userId))
@@ -85,6 +86,12 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
                 if (!notifyUserId.equals(userId)) {
                     notificationService.create(notifyUserId, userId, "COMMENT_REPLY", comment.getId(), "comment", String.valueOf(trackId));
                 }
+            }
+        } else {
+            // 一级评论：通知歌曲上传者
+            Long uploaderId = track.getUploaderId();
+            if (uploaderId != null && !uploaderId.equals(userId)) {
+                notificationService.create(uploaderId, userId, "COMMENT", comment.getId(), "comment", String.valueOf(trackId));
             }
         }
         

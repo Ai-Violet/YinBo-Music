@@ -3,6 +3,14 @@
     <div class="page-header">
       <button class="back-btn" @click="router.push('/home')">← 返回</button>
       <h1>消息通知</h1>
+      <button
+        v-if="list.length > 0 && !loading"
+        class="clear-all-btn"
+        :disabled="clearing"
+        @click="handleClearAll"
+      >
+        {{ clearing ? '清空中...' : '清空' }}
+      </button>
     </div>
     <div v-if="!userStore.currentUser" class="login-hint">
       请先 <router-link to="/login">登录</router-link> 查看通知
@@ -23,6 +31,15 @@
             <p class="n-text">{{ formatText(n) }}</p>
             <span class="n-time">{{ formatTime(n.createdAt) }}</span>
           </div>
+          <button
+            class="delete-one-btn"
+            title="删除"
+            @click.stop="handleDeleteOne(n)"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/>
+            </svg>
+          </button>
         </div>
       </div>
       <div v-if="hasMore && list.length > 0" class="load-more">
@@ -37,6 +54,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { notificationApi, type NotificationItem } from '../api'
 import { useUserStore } from '../stores/user'
 import { DEFAULT_AVATAR_COVER } from '../constants'
@@ -48,6 +66,7 @@ const defaultAvatar = DEFAULT_AVATAR_COVER
 const list = ref<NotificationItem[]>([])
 const loading = ref(true)
 const loadingMore = ref(false)
+const clearing = ref(false)
 const page = ref(1)
 const total = ref(0)
 const pageSize = 20
@@ -82,16 +101,52 @@ const loadMore = () => {
 const handleClick = (n: NotificationItem) => {
   if (n.type === 'FOLLOW' && n.fromUserId) {
     router.push(`/profile/${n.fromUserId}`)
-  } else if (n.extra) {
+  } else if ((n.type === 'COMMENT' || n.type === 'COMMENT_REPLY' || n.type === 'LIKE' || n.type === 'FAVORITE') && n.extra) {
     router.push(`/track/${n.extra}`)
+  }
+}
+
+const emitNotificationsChanged = () => {
+  window.dispatchEvent(new CustomEvent('yinbo:notifications-changed'))
+}
+
+const handleDeleteOne = async (n: NotificationItem) => {
+  try {
+    await notificationApi.deleteOne(n.id)
+    list.value = list.value.filter((item) => item.id !== n.id)
+    total.value--
+    ElMessage.success('已删除')
+    emitNotificationsChanged()
+  } catch (e) {
+    console.error('Delete notification error:', e)
+    ElMessage.error('删除失败')
+  }
+}
+
+const handleClearAll = async () => {
+  if (!confirm('确定要清空全部通知吗？')) return
+  try {
+    clearing.value = true
+    await notificationApi.clearAll()
+    list.value = []
+    total.value = 0
+    ElMessage.success('已清空')
+    emitNotificationsChanged()
+  } catch (e) {
+    console.error('Clear notifications error:', e)
+    ElMessage.error('清空失败')
+  } finally {
+    clearing.value = false
   }
 }
 
 const formatText = (n: NotificationItem) => {
   const name = n.fromUserNickname || '某人'
-  if (n.type === 'FOLLOW') return `${name} 关注了你`
+  if (n.type === 'FOLLOW') return `${name} 关注了你，成为了你的粉丝`
+  if (n.type === 'COMMENT') return `${name} 评论了你的歌曲`
   if (n.type === 'COMMENT_REPLY') return `${name} 回复了你的评论`
   if (n.type === 'LIKE') return `${name} 赞了你的评论`
+  if (n.type === 'FAVORITE') return `${name} 收藏了你的歌曲`
   return ''
 }
 
@@ -143,6 +198,28 @@ onMounted(() => {
   margin: 0;
   font-size: var(--text-xl);
   color: var(--text-primary);
+  flex: 1;
+}
+
+.clear-all-btn {
+  padding: var(--sp-1) var(--sp-4);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+
+.clear-all-btn:hover:not(:disabled) {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.clear-all-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .login-hint {
@@ -176,10 +253,37 @@ onMounted(() => {
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: background var(--dur-fast);
+  position: relative;
 }
 
 .notification-item:hover {
   background: var(--bg-elevated);
+}
+
+.delete-one-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--dur-fast), color var(--dur-fast);
+}
+
+.notification-item:hover .delete-one-btn {
+  opacity: 1;
+}
+
+.delete-one-btn:hover {
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .notification-item.unread {

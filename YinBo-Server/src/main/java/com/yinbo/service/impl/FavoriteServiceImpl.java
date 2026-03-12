@@ -11,6 +11,7 @@ import com.yinbo.mapper.FavoriteMapper;
 import com.yinbo.mapper.TrackMapper;
 import com.yinbo.service.FavoriteService;
 import com.yinbo.service.MinioService;
+import com.yinbo.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 public class FavoriteServiceImpl extends ServiceImpl<FavoriteMapper, Favorite> implements FavoriteService {
     
     private final MinioService minioService;
+    private final NotificationService notificationService;
     
     private final FavoriteMapper favoriteMapper;
     private final TrackMapper trackMapper;
@@ -51,6 +53,12 @@ public class FavoriteServiceImpl extends ServiceImpl<FavoriteMapper, Favorite> i
         favoriteMapper.insert(favorite);
         
         trackMapper.incrementLikeCount(trackId);
+        
+        // 收藏歌曲时通知上传者
+        Long uploaderId = track.getUploaderId();
+        if (uploaderId != null && !uploaderId.equals(userId)) {
+            notificationService.create(uploaderId, userId, "FAVORITE", trackId, "track", String.valueOf(trackId));
+        }
         
         log.info("User {} added favorite to track {}", userId, trackId);
     }

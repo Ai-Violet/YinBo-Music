@@ -853,16 +853,18 @@ const handleNotificationClick = (n: NotificationItem) => {
   if (notificationUnreadCount.value > 0) markNotificationsRead()
   if (n.type === 'FOLLOW' && n.fromUserId) {
     router.push(`/profile/${n.fromUserId}`)
-  } else if (n.extra) {
+  } else if ((n.type === 'COMMENT' || n.type === 'COMMENT_REPLY' || n.type === 'LIKE' || n.type === 'FAVORITE') && n.extra) {
     router.push(`/track/${n.extra}`)
   }
 }
 
 const formatNotificationText = (n: NotificationItem) => {
   const name = n.fromUserNickname || '某人'
-  if (n.type === 'FOLLOW') return `${name} 关注了你`
+  if (n.type === 'FOLLOW') return `${name} 关注了你，成为了你的粉丝`
+  if (n.type === 'COMMENT') return `${name} 评论了你的歌曲`
   if (n.type === 'COMMENT_REPLY') return `${name} 回复了你的评论`
   if (n.type === 'LIKE') return `${name} 赞了你的评论`
+  if (n.type === 'FAVORITE') return `${name} 收藏了你的歌曲`
   return ''
 }
 
@@ -1722,6 +1724,13 @@ const onVisibilityChange = () => {
   if (document.visibilityState === 'visible' && userStore.currentUser) fetchUnreadCount()
 }
 
+const onNotificationsChanged = () => {
+  if (userStore.currentUser) {
+    fetchUnreadCount()
+    if (showNotificationPanel.value) fetchNotifications()
+  }
+}
+
 onMounted(() => {
   loadAnnouncements()
   loadRanking()
@@ -1734,6 +1743,7 @@ onMounted(() => {
   }
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('visibilitychange', onVisibilityChange)
+  window.addEventListener('yinbo:notifications-changed', onNotificationsChanged)
 })
 
 watch(() => userStore.currentUser, (user) => {
@@ -1753,6 +1763,7 @@ watch(() => userStore.currentUser, (user) => {
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  window.removeEventListener('yinbo:notifications-changed', onNotificationsChanged)
   stopCommentAutoRefresh()
   if (notificationPollTimer) {
     clearInterval(notificationPollTimer)
