@@ -2,11 +2,14 @@ package com.yinbo.controller;
 
 import com.yinbo.common.Result;
 import com.yinbo.dto.LoginRequest;
+import com.yinbo.dto.LoginResult;
 import com.yinbo.dto.RegisterRequest;
+import com.yinbo.dto.SendEmailCodeRequest;
 import com.yinbo.dto.UserDTO;
 import com.yinbo.entity.User;
 import com.yinbo.service.MinioService;
 import com.yinbo.service.UserService;
+import com.yinbo.service.VerificationCodeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -22,39 +25,35 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
-    
+
     private final UserService userService;
     private final MinioService minioService;
-    
-    @Operation(summary = "User registration")
+    private final VerificationCodeService verificationCodeService;
+
+    @Operation(summary = "发送邮箱注册验证码")
+    @PostMapping("/send-email-code")
+    public Result<String> sendEmailCode(@Valid @RequestBody SendEmailCodeRequest request) {
+        verificationCodeService.sendEmailCode(request.getEmail().trim());
+        return Result.success("sent");
+    }
+
+    @Operation(summary = "User registration（邮箱验证码）")
     @PostMapping("/register")
     public Result<UserDTO> register(@Valid @RequestBody RegisterRequest request) {
-        // Admin secret key for admin registration
-        String adminSecretKey = "yinbo";
-        boolean isAdmin = adminSecretKey.equals(request.getAdminKey());
-        
-        User user = userService.register(
-            request.getUsername(), 
-            request.getEmail(), 
-            request.getPassword(),
-            isAdmin
-        );
+        User user = userService.registerWithVerification(request);
         return Result.success("Registration successful", toDTO(user));
     }
-    
-    @Operation(summary = "User login")
+
+    @Operation(summary = "User login（用户名或邮箱）")
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        String token = userService.login(request.getUsername(), request.getPassword());
-        User user = userService.getByUsername(request.getUsername());
-        
+        LoginResult result = userService.loginWithUser(request.getUsername(), request.getPassword());
         LoginResponse response = new LoginResponse();
-        response.setToken(token);
-        response.setUser(toDTO(user));
-        
+        response.setToken(result.getToken());
+        response.setUser(toDTO(result.getUser()));
         return Result.success("Login successful", response);
     }
-    
+
     @Operation(summary = "Check if username exists and get avatar (for login form preview)")
     @GetMapping("/check-username")
     public Result<UsernameCheckResponse> checkUsername(@RequestParam String username) {
@@ -80,14 +79,14 @@ public class AuthController {
             return Result.success(new UsernameCheckResponse(false, null));
         }
     }
-    
+
     @Operation(summary = "Refresh token")
     @PostMapping("/refresh")
     public Result<String> refreshToken(@RequestHeader("Authorization") String token) {
         String newToken = userService.refreshToken(token);
         return Result.success(newToken);
     }
-    
+
     private UserDTO toDTO(User user) {
         UserDTO dto = new UserDTO();
         dto.setId(user.getId());
@@ -96,22 +95,36 @@ public class AuthController {
         dto.setRole(user.getRole());
         dto.setNickname(user.getNickname());
         dto.setSignature(user.getSignature());
+        dto.setStatus(user.getStatus());
+        if (user.getCreatedAt() != null) {
+            dto.setCreatedAt(user.getCreatedAt().toString());
+        }
+        if (user.getGender() != null) {
+            dto.setGender(user.getGender());
+        }
+        if (user.getBirthday() != null) {
+            dto.setBirthday(user.getBirthday().toString());
+        }
+        if (user.getRegion() != null) {
+            dto.setRegion(user.getRegion());
+        }
         if (user.getAvatar() != null && !user.getAvatar().isEmpty()) {
             dto.setAvatar(minioService.getAvatarUrl(user.getAvatar()));
         }
         return dto;
     }
-    
+
     @Data
     public static class LoginResponse {
         private String token;
         private UserDTO user;
     }
-    
+
     @Data
     public static class UsernameCheckResponse {
         private boolean exists;
         private String avatar;
+
         public UsernameCheckResponse(boolean exists, String avatar) {
             this.exists = exists;
             this.avatar = avatar;

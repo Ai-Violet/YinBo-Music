@@ -22,4 +22,8 @@ public class TrackDTO {
     private Boolean isFavorited;
     private String uploaderName;
     private String createdAt;
+    /** 管理端排行：收藏人数（非库表字段，仅统计展示） */
+    private Long favoriteUserCount;
+    /** 管理端排行：评论条数（曲目下全部评论，含回复） */
+    private Long totalCommentCount;
 }

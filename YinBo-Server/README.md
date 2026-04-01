@@ -75,7 +75,34 @@ mvn spring-boot:run
 | 公告 | `/announcements` | 公告列表 |
 | 管理 | `/admin` | 管理端接口（需 ADMIN 角色） |
 
+## 数据库
+
+- 完整脚本：`src/main/resources/db/yinbo_music.sql`（含建库语句，可直接 `mysql -u root -p < yinbo_music.sql`）
+- 表说明与导入方式：[src/main/resources/db/README.md](src/main/resources/db/README.md)
+
+请保证 `application.yml` 中 `spring.datasource.url` 的库名、字符集与本机 MySQL 一致。
+
+## MinIO 与 Windows 启动脚本
+
+- 桶名、目录、`endpoint` 详见 [docs/STORAGE_BUCKET.md](docs/STORAGE_BUCKET.md)
+- 仓库根目录的 **`startMinio.bat`** 用于 Windows 本地启动 `minio.exe`：**其中 `F:\MinIO\...` 为示例路径**，必须改为本机的可执行文件路径与数据目录；API 端口需与 `minio.endpoint` 一致（默认 9000），控制台默认 9005
+- 后端启动时 `MinioInitializer` 会创建桶（若不存在）、设置公开读策略，并创建 `music/`、`cover/`、`avatar/` 占位对象
+
+## 注意事项（常见坑）
+
+| 问题 | 说明 |
+|------|------|
+| MinIO 未启动 | 日志报错，上传与部分媒体能力不可用；API 其它逻辑可能仍可用 |
+| Redis 密码 | 模板默认无密码；本机 Redis 若设置了 `requirepass`，须在 `application.yml` 配置 `spring.data.redis.password` |
+| 邮箱验证码 | QQ 使用 587 + STARTTLS；勿用 465；生产用环境变量覆盖 SMTP 密码，勿提交仓库 |
+| `allow-circular-references` | 为循环依赖权宜配置，生产建议逐步重构后关闭 |
+| MyBatis SQL 打印 | `StdOutImpl` 仅适合开发，生产请关闭 |
+| `yinbo.search.backfill-on-startup` | 仅在增加 `search_norm` 列后临时开启一次回填 |
+| JWT / `adminKey` | 生产务必更换 `jwt.secret`，勿依赖默认 `adminKey: yinbo` 注册管理员 |
+
 ## 相关文档
 
 - [数据库](src/main/resources/db/README.md)
 - [存储桶（MinIO）](docs/STORAGE_BUCKET.md)
+- [**邮箱验证码（注册）**](docs/EMAIL_VERIFICATION.md)：SMTP 配置、Redis 键、接口与安全注意
+- [仓库总 README](../README.md)（三端联调、论文配图、完整清单）

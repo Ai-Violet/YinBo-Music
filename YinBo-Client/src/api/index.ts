@@ -26,6 +26,11 @@ export interface SingerDetail {
   description?: string
 }
 
+export interface PortalSearchResult {
+  tracks: PageResponse<Track>
+  singers: SingerDetail[]
+}
+
 export const singerApi = {
   getDetail(id: number) {
     return request.get<ApiResponse<SingerDetail>>(`/singers/public/${id}`)
@@ -48,6 +53,19 @@ export const trackApi = {
   search(keyword: string, page?: number, size?: number) {
     return request.get<ApiResponse<PageResponse<Track>>>('/tracks/public/search', { 
       params: { keyword: keyword || '', page, size } 
+    })
+  },
+
+  /** 聚合搜索：歌手 + 歌曲（含拼音/简拼） */
+  searchPortal(keyword: string, params?: { page?: number; size?: number; singerLimit?: number; categoryId?: number }) {
+    return request.get<ApiResponse<PortalSearchResult>>('/tracks/public/search/portal', {
+      params: {
+        keyword: keyword || '',
+        page: params?.page,
+        size: params?.size,
+        singerLimit: params?.singerLimit,
+        categoryId: params?.categoryId
+      }
     })
   },
 
@@ -196,13 +214,23 @@ export const userApi = {
     })
   },
 
-  // 登录
+  // 登录（username 可为用户名或邮箱）
   login(data: { username: string; password: string }) {
     return request.post<ApiResponse<{ token: string; user: any }>>('/auth/login', data)
   },
 
-  // 注册
-  register(data: { username: string; email: string; password: string; adminKey?: string }) {
+  sendEmailCode(email: string) {
+    return request.post<ApiResponse<void>>('/auth/send-email-code', { email })
+  },
+
+  /** 邮箱 + 邮箱验证码注册 */
+  register(data: {
+    username: string
+    email: string
+    password: string
+    verifyCode: string
+    adminKey?: string
+  }) {
     return request.post<ApiResponse<any>>('/auth/register', data)
   },
 

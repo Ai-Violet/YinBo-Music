@@ -84,14 +84,14 @@
                 </div>
               </div>
 
-              <!-- 回复列表 -->
+              <!-- 回复列表（抖音式平铺楼中楼，可任意回复） -->
               <div v-if="comment.replies && comment.replies.length > 0" class="replies-list">
                 <div 
                   v-for="reply in comment.replies" 
                   :key="reply.id" 
                   class="reply-item"
                 >
-                  <div class="reply-avatar" @click="goToUserProfile(reply.userId)">
+                  <div class="reply-avatar" @click.stop="goToUserProfile(reply.userId)">
                     <img
                       :src="reply.userAvatar || defaultAvatar"
                       alt="头像"
@@ -99,12 +99,17 @@
                     />
                   </div>
                   <div class="reply-content">
-                    <div class="reply-header">
-                      <span class="reply-user" @click="goToUserProfile(reply.userId)">{{ reply.userNickname || '用户' }}</span>
-                      <span class="reply-text">{{ reply.content }}</span>
+                    <div class="reply-bubble">
+                      <span class="reply-user" @click.stop="goToUserProfile(reply.userId)">{{ reply.userNickname || '用户' }}</span>
+                      <template v-if="reply.replyToNickname && reply.replyToUserId">
+                        <span class="reply-arrow">回复</span>
+                        <span class="reply-at" @click.stop="goToUserProfile(reply.replyToUserId)">{{ reply.replyToNickname }}</span>
+                      </template>
+                      <p class="reply-text">{{ reply.content }}</p>
                     </div>
                     <div class="reply-meta">
                       <span class="reply-time">{{ formatCommentTime(reply.createdAt) }}</span>
+                      <button type="button" class="reply-inline-btn" @click="replyToComment(reply, comment)">回复</button>
                       <button 
                         v-if="reply.userId === currentUserId" 
                         class="delete-reply-btn"
@@ -324,36 +329,42 @@ const likeComment = async (comment: any) => {
   }
 }
 
-const replyToComment = (comment: any) => {
-  replyingTo.value = comment
+/** 主楼层 comment，用于提交后展开该楼全部回复 */
+const replyThreadRoot = ref<any>(null)
+
+const replyToComment = (target: any, threadRoot?: any) => {
+  replyingTo.value = target
+  replyThreadRoot.value = threadRoot ?? (target.parentId == null ? target : null)
   replyContent.value = ''
 }
 
 const cancelReply = () => {
   replyingTo.value = null
+  replyThreadRoot.value = null
   replyContent.value = ''
 }
 
 const submitReply = async () => {
   if (!replyingTo.value || !replyContent.value.trim() || !props.track) return
-  const rootId = replyingTo.value.parentId ?? replyingTo.value.id
-  const isReplyToReply = replyingTo.value.parentId != null
-  const nickname = replyingTo.value.userNickname || replyingTo.value.nickname || replyingTo.value.username || '用户'
-  const content = isReplyToReply
-    ? `回复 @${nickname}: ${replyContent.value.trim()}`
-    : replyContent.value.trim()
+  const target = replyingTo.value
+  const rootAfter = replyThreadRoot.value
+  const floorId = rootAfter?.id ?? (target.parentId == null ? target.id : target.parentId)
   submittingReply.value = true
   try {
     const res = await commentApi.create({
       trackId: props.track.id,
-      content,
-      parentId: rootId,
-      replyToUserId: isReplyToReply ? replyingTo.value.userId : undefined
+      content: replyContent.value.trim(),
+      parentId: floorId,
+      replyToUserId: target.userId
     })
     if (res.data.code === 200) {
       ElMessage.success('回复发布成功')
       cancelReply()
       await loadComments()
+      if (rootAfter?.id) {
+        const c = comments.value.find((x: any) => x.id === rootAfter.id)
+        if (c) await loadMoreReplies(c)
+      }
     }
   } catch (e: any) {
     const msg = e?.response?.data?.message || e?.message
@@ -387,7 +398,8 @@ const deleteReply = async (comment: any, replyId: number) => {
 
 const loadMoreReplies = async (comment: any) => {
   try {
-    const res = await commentApi.getReplies(comment.id)
+    const size = Math.min(200, Math.max(30, (comment.replyCount || 0) + 5))
+    const res = await commentApi.getReplies(comment.id, 1, size)
     if (res.data.code === 200) {
       comment.replies = (res.data.data.records || []).map((r: any) => normalizeReply(r))
     }
@@ -541,12 +553,13 @@ const goToUserProfile = (userId: number) => {
 
 .replies-list {
   margin-top: var(--sp-3);
-  padding: var(--sp-3);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
   background: var(--bg-active);
   border-radius: var(--radius-md);
+  border-left: 3px solid var(--accent-muted, rgba(124, 58, 237, 0.35));
 }
 
-.reply-item { display: flex; gap: 10px; margin-bottom: var(--sp-3); }
+.reply-item { display: flex; gap: 10px; margin-bottom: var(--sp-3); align-items: flex-start; }
 .reply-item:last-child { margin-bottom: 0; }
 
 .reply-avatar {
@@ -561,16 +574,43 @@ const goToUserProfile = (userId: number) => {
 .reply-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .reply-content { flex: 1; min-width: 0; }
-.reply-header { margin-bottom: 4px; }
+.reply-bubble { margin-bottom: 6px; line-height: 1.55; }
 .reply-user {
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-accent);
   cursor: pointer;
 }
 .reply-user:hover { color: var(--accent); }
-.reply-text { font-size: var(--text-sm); color: var(--text-primary); margin-left: var(--sp-2); }
-.reply-meta { display: flex; align-items: center; gap: var(--sp-3); }
+.reply-arrow {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0 4px;
+}
+.reply-at {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+.reply-at:hover { text-decoration: underline; }
+.reply-text {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.reply-meta { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.reply-inline-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  padding: 0;
+}
+.reply-inline-btn:hover { color: var(--accent); }
 .reply-time { font-size: var(--text-xs); color: var(--text-secondary); }
 .delete-reply-btn {
   background: none;

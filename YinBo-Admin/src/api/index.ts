@@ -17,10 +17,27 @@ interface PageResponse<T> {
 }
 
 export const userApi = {
+  checkUsername(username: string) {
+    return request.get<ApiResponse<{ exists: boolean; avatar: string | null }>>('/auth/check-username', {
+      params: { username }
+    })
+  },
+
   login(data: { username: string; password: string }) {
     return request.post<ApiResponse<{ token: string; user: any }>>('/auth/login', data)
   },
-  register(data: { username: string; email: string; password: string; adminKey?: string }) {
+
+  sendEmailCode(email: string) {
+    return request.post<ApiResponse<void>>('/auth/send-email-code', { email })
+  },
+
+  register(data: {
+    username: string
+    email: string
+    password: string
+    verifyCode: string
+    adminKey?: string
+  }) {
     return request.post<ApiResponse<any>>('/auth/register', data)
   },
   getUserInfo() {
@@ -78,8 +95,8 @@ export const adminApi = {
   getAllTracks(page?: number, size?: number, status?: number, keyword?: string, categoryId?: number) {
     return request.get<ApiResponse<PageResponse<Track>>>('/admin/tracks', { params: { page, size, status, keyword, categoryId } })
   },
-  getTrackRanking(limit?: number) {
-    return request.get<ApiResponse<PageResponse<Track>>>('/admin/tracks/ranking', { params: { limit } })
+  getTrackRanking(limit?: number, type?: 'play' | 'favorite' | 'like' | 'comment') {
+    return request.get<ApiResponse<PageResponse<Track>>>('/admin/tracks/ranking', { params: { limit, type } })
   },
   getCategories() {
     return request.get<ApiResponse<any[]>>('/admin/categories')
@@ -131,8 +148,21 @@ export const adminApi = {
   deleteTrack(trackId: number) {
     return request.delete<ApiResponse<void>>(`/admin/tracks/${trackId}`)
   },
-  getAllComments(page?: number, size?: number, trackId?: number) {
-    return request.get<ApiResponse<PageResponse<Comment>>>('/admin/comments', { params: { page, size, trackId } })
+  getAllComments(
+    page?: number,
+    size?: number,
+    trackId?: number,
+    userId?: number,
+    sort?: 'newest' | 'hot' | 'likes' | 'replies' | 'favorite'
+  ) {
+    return request.get<ApiResponse<PageResponse<Comment>>>('/admin/comments', {
+      params: { page, size, trackId, userId, sort }
+    })
+  },
+  getCommentUserStats(page?: number, size?: number, keyword?: string) {
+    return request.get<ApiResponse<PageResponse<any>>>('/admin/comments/user-stats', {
+      params: { page, size, keyword }
+    })
   },
   auditComment(commentId: number, status: number) {
     return request.put<ApiResponse<void>>(`/admin/comments/${commentId}/audit`, null, { params: { status } })

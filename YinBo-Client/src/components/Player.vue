@@ -85,6 +85,19 @@
                 </svg>
               </el-icon>
             </el-button>
+            <el-button
+              circle
+              class="control-btn download-btn"
+              :disabled="!currentTrack"
+              title="下载音乐文件"
+              @click="onDownloadCurrent"
+            >
+              <el-icon>
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+              </el-icon>
+            </el-button>
           </div>
         </div>
       </div>
@@ -247,6 +260,7 @@ import { storeToRefs } from 'pinia'
 import { favoriteApi, playlistApi } from '../api'
 import { ElMessage } from 'element-plus'
 import { DEFAULT_AVATAR_COVER } from '../constants'
+import { downloadTrackFile } from '../utils/downloadTrack'
 
 const defaultCover = DEFAULT_AVATAR_COVER
 
@@ -383,6 +397,17 @@ const addTrackToPlaylist = async (playlistId: number) => {
     console.error('Add to playlist failed:', e)
     ElMessage.error(e.response?.data?.message || '添加失败')
   }
+}
+
+const onDownloadCurrent = () => {
+  const t = currentTrack.value
+  if (!t?.id) return
+  downloadTrackFile({
+    id: t.id,
+    title: t.title,
+    playUrl: t.playUrl,
+    audioUrl: t.audioUrl
+  })
 }
 const playlistWithCurrent = computed(() =>
   playerStore.playlist.map(track => ({

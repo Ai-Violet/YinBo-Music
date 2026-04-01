@@ -54,8 +54,14 @@ yinbomusic/                    # 主桶
 
 ## 启动 MinIO
 
+### Windows 批处理（本地二进制）
+
+仓库根目录 **`startMinio.bat`**：切换到 `minio.exe` 所在目录后执行 `server`，并绑定 API `127.0.0.1:9000`、控制台 `127.0.0.1:9005`。  
+**注意：** 脚本内路径默认为示例（如 `F:\MinIO\bin`、`F:\MinIO\data`），克隆到其它机器后必须改为本机实际路径；Access Key / Secret Key 须与 `application.yml` 中 `minio.access-key`、`minio.secret-key` 一致。
+
+### Docker
+
 ```bash
-# Docker
 docker run -d -p 9000:9000 -p 9005:9005 \
   -e MINIO_ROOT_USER=minio \
   -e MINIO_ROOT_PASSWORD=12345678 \

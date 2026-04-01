@@ -1,66 +1,71 @@
 <template>
-  <div class="user-management admin-page">
+  <div class="user-management admin-page page-stack">
     <!-- Toolbar -->
-    <div class="admin-header toolbar">
-      <div class="toolbar-left">
-        <h2 class="admin-page-title" style="margin:0;flex-shrink:0">用户管理</h2>
-        <input v-model="searchKeyword" class="admin-input search-input" type="text" placeholder="搜索用户名或邮箱..." @keyup.enter="searchUsers" />
-        <button class="admin-btn admin-btn-primary" @click="searchUsers">搜索</button>
+    <section class="admin-surface toolbar-surface admin-shrink-0">
+      <div class="admin-header toolbar-inner">
+        <div class="toolbar-left">
+          <h2 class="admin-page-title toolbar-title">用户管理</h2>
+          <input v-model="searchKeyword" class="admin-input search-input" type="text" placeholder="搜索用户名或邮箱..." @keyup.enter="searchUsers" />
+          <button class="admin-btn admin-btn-primary" @click="searchUsers">搜索</button>
+        </div>
+        <div class="toolbar-right">
+          <template v-if="selectedIds.length > 0">
+            <span class="selected-count">已选 {{ selectedIds.length }} 人</span>
+            <button class="admin-btn admin-btn-ghost" @click="batchAction(1)">批量封禁</button>
+            <button class="admin-btn admin-btn-ghost" @click="batchAction(0)">批量解封</button>
+          </template>
+          <button class="admin-btn admin-btn-ghost" @click="exportCSV">导出 CSV</button>
+        </div>
       </div>
-      <div class="toolbar-right">
-        <template v-if="selectedIds.length > 0">
-          <span class="selected-count">已选 {{ selectedIds.length }} 人</span>
-          <button class="admin-btn admin-btn-ghost" @click="batchAction(1)">批量封禁</button>
-          <button class="admin-btn admin-btn-ghost" @click="batchAction(0)">批量解封</button>
-        </template>
-        <button class="admin-btn admin-btn-ghost" @click="exportCSV">导出 CSV</button>
+      <p class="admin-muted toolbar-hint">列表区域单独滚动；「查看主页」打开用户端个人页。</p>
+    </section>
+
+    <section class="admin-surface scroll-fill user-table-shell">
+      <div class="table-scroll-inner">
+        <div v-if="users.length === 0" class="admin-empty"><p>暂无用户数据</p></div>
+        <div v-else class="admin-table-wrap admin-card table-card">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th class="col-check"><input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" /></th>
+                <th>用户</th>
+                <th>邮箱</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>注册时间</th>
+                <th class="col-action">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="user in users" :key="user.id" :class="{ 'row-selected': selectedIds.includes(user.id) }">
+                <td class="col-check"><input type="checkbox" :checked="selectedIds.includes(user.id)" @change="toggleSelect(user.id)" /></td>
+                <td>
+                  <div class="user-cell">
+                    <img :src="user.avatar || '/花君.png'" alt="" class="avatar" @error="handleAvatarError" />
+                    <span>{{ user.nickname || user.username }}</span>
+                  </div>
+                </td>
+                <td class="text-secondary">{{ user.email }}</td>
+                <td><span class="badge" :class="user.role?.toLowerCase()">{{ user.role }}</span></td>
+                <td><span class="badge" :class="user.status === 0 ? 'ok' : 'ban'">{{ user.status === 0 ? '正常' : '封禁' }}</span></td>
+                <td class="text-tertiary">{{ formatDate(user.createdAt) }}</td>
+                <td>
+                  <div class="actions">
+                    <button class="act-btn" @click="viewProfile(user.id)">查看主页</button>
+                    <button v-if="user.status === 0" class="act-btn warn" @click="handleDisable(user)">封禁</button>
+                    <button v-else class="act-btn ok" @click="updateStatus(user.id, 0)">解封</button>
+                    <button class="act-btn danger" @click="handleDelete(user)">注销</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-
-    <!-- Table -->
-    <div class="admin-table-wrap admin-card">
-      <table class="admin-table">
-        <thead>
-          <tr>
-            <th class="col-check"><input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" /></th>
-            <th>用户</th>
-            <th>邮箱</th>
-            <th>角色</th>
-            <th>状态</th>
-            <th>注册时间</th>
-            <th class="col-action">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="user in users" :key="user.id" :class="{ 'row-selected': selectedIds.includes(user.id) }">
-            <td class="col-check"><input type="checkbox" :checked="selectedIds.includes(user.id)" @change="toggleSelect(user.id)" /></td>
-            <td>
-              <div class="user-cell">
-                <img :src="user.avatar || '/花君.png'" alt="" class="avatar" @error="handleAvatarError" />
-                <span>{{ user.nickname || user.username }}</span>
-              </div>
-            </td>
-            <td class="text-secondary">{{ user.email }}</td>
-            <td><span class="badge" :class="user.role?.toLowerCase()">{{ user.role }}</span></td>
-            <td><span class="badge" :class="user.status === 0 ? 'ok' : 'ban'">{{ user.status === 0 ? '正常' : '封禁' }}</span></td>
-            <td class="text-tertiary">{{ formatDate(user.createdAt) }}</td>
-            <td>
-              <div class="actions">
-                <button class="act-btn" @click="viewProfile(user.id)">查看主页</button>
-                <button v-if="user.status === 0" class="act-btn warn" @click="handleDisable(user)">封禁</button>
-                <button v-else class="act-btn ok" @click="updateStatus(user.id, 0)">解封</button>
-                <button class="act-btn danger" @click="handleDelete(user)">注销</button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div v-if="users.length === 0" class="admin-empty"><p>暂无用户数据</p></div>
+    </section>
 
     <!-- Pagination -->
-    <div v-if="users.length > 0" class="admin-pagination">
+    <div v-if="users.length > 0" class="admin-pagination admin-shrink-0">
       <button :disabled="page === 1" @click="page--; loadUsers()">上一页</button>
       <span class="page-info">第 {{ page }} 页</span>
       <button :disabled="users.length < size" @click="page++; loadUsers()">下一页</button>
@@ -190,6 +195,28 @@ onMounted(loadUsers)
 </script>
 
 <style scoped>
+.toolbar-surface {
+  padding: var(--sp-5) var(--sp-6);
+}
+.toolbar-inner {
+  margin-bottom: 0;
+}
+.toolbar-title {
+  margin: 0;
+  flex-shrink: 0;
+}
+.toolbar-hint {
+  margin: var(--sp-3) 0 0;
+}
+.user-table-shell {
+  padding: 0;
+  overflow: hidden;
+}
+.table-card {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
 .toolbar-left { display: flex; gap: var(--sp-3); flex: 1; min-width: 240px; }
 .toolbar-right { display: flex; gap: var(--sp-2); align-items: center; }
 .search-input { max-width: 300px; }
@@ -229,7 +256,6 @@ tr:hover { background: var(--bg-hover); }
   cursor: pointer;
   border: none;
 }
-.toolbar { margin-bottom: var(--sp-6); }
 .act-btn:hover { background: var(--bg-active); color: var(--text-primary); }
 .act-btn.warn { color: var(--amber); }
 .act-btn.warn:hover { background: rgba(245,158,11,0.12); }
@@ -242,6 +268,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px;
 
 .toolbar-left { display: flex; gap: var(--sp-4); align-items: center; flex-wrap: wrap; flex: 1; min-width: 240px; }
 .toolbar-right { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
+
+.user-management .admin-pagination {
+  margin-top: 0;
+  padding: var(--sp-4) 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+
 .modal-desc { color: var(--text-secondary); font-size: var(--text-sm); margin-bottom: var(--sp-4); }
 .key-error { color: var(--red); font-size: var(--text-sm); margin-bottom: var(--sp-3); text-align: center; }
 .admin-modal .admin-input { margin-bottom: var(--sp-4); width: 100%; }

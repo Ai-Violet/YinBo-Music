@@ -2,6 +2,7 @@ package com.yinbo.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.yinbo.dto.PortalSearchResult;
 import com.yinbo.dto.TrackDTO;
 import com.yinbo.entity.Track;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,8 +32,15 @@ public interface TrackService extends IService<Track> {
     IPage<TrackDTO> getMostCommentedTracks(int page, int size);
     
     IPage<TrackDTO> searchTracks(String keyword, int page, int size);
-    
+
+    /**
+     * 聚合搜索：歌曲分页 + 歌手列表（简拼等在 search_norm 中）
+     */
+    PortalSearchResult searchPortal(String keyword, int page, int size, int singerLimit, Long categoryId, Long userId);
+
     java.util.List<String> getSearchHotKeywords();
+
+    int backfillTrackSearchNorm();
     
     IPage<TrackDTO> getPendingTracks(int page, int size);
         
@@ -41,6 +49,11 @@ public interface TrackService extends IService<Track> {
     IPage<TrackDTO> getAdminTracks(int page, int size, Integer status, String keyword, Long categoryId);
     
     IPage<TrackDTO> getTopPlayTracks(int limit);
+
+    /**
+     * 管理端多维排行：play | favorite | like | comment
+     */
+    IPage<TrackDTO> getAdminTrackRanking(String type, int limit);
     
     void updateStatus(Long trackId, int status);
     

@@ -65,8 +65,42 @@
         </div>
 
         <template v-else>
+          <div class="search-toolbar">
+            <el-select
+              v-model="selectedCategoryId"
+              clearable
+              placeholder="全部分类"
+              class="category-filter"
+              @change="onCategoryChange"
+            >
+              <el-option
+                v-for="c in categories"
+                :key="c.id"
+                :label="c.name"
+                :value="c.id"
+              />
+            </el-select>
+          </div>
+
+          <section v-if="singers.length > 0" class="singer-section">
+            <h3 class="block-title">歌手</h3>
+            <div class="singer-cards">
+              <button
+                v-for="s in singers"
+                :key="s.id"
+                type="button"
+                class="singer-card"
+                @click="goSinger(s.id)"
+              >
+                <img :src="s.avatarUrl || defaultCover" alt="" class="singer-av" @error="onImgErr" />
+                <span class="singer-name">{{ s.name }}</span>
+              </button>
+            </div>
+          </section>
+
           <div class="results-header">
-            <span class="count">找到 {{ total }} 首相关歌曲</span>
+            <h3 class="block-title">歌曲</h3>
+            <span class="count">共 {{ total }} 首</span>
           </div>
 
           <!-- 歌曲列表（与 Home 最新音乐样式一致） -->
@@ -201,6 +235,9 @@ const addTargetTrack = ref<Track | null>(null)
 const myPlaylists = ref<any[]>([])
 const showCommentDrawer = ref(false)
 const currentCommentTrack = ref<Track | null>(null)
+const singers = ref<{ id: number; name: string; avatarUrl?: string }[]>([])
+const categories = ref<{ id: number; name: string }[]>([])
+const selectedCategoryId = ref<number | undefined>(undefined)
 
 const searchHistoryVersion = ref(0)
 const searchHistory = computed(() => {
@@ -250,6 +287,12 @@ const searchFromKeyword = (kw: string) => {
   performSearch()
 }
 
+const mapTrack = (t: any) => ({
+  ...t,
+  coverUrl: t.coverUrl || t.cover,
+  playUrl: t.playUrl || t.url
+})
+
 const performSearch = async () => {
   const kw = searchKeyword.value.trim()
   if (!kw) return
@@ -260,15 +303,18 @@ const performSearch = async () => {
   page.value = 1
 
   try {
-    const res = await trackApi.search(kw, 1, pageSize)
+    const res = await trackApi.searchPortal(kw, {
+      page: 1,
+      size: pageSize,
+      singerLimit: 16,
+      categoryId: selectedCategoryId.value
+    })
     if (res.data.code === 200) {
       const data = res.data.data
-      tracks.value = (data.records || []).map((t: any) => ({
-        ...t,
-        coverUrl: t.coverUrl || t.cover,
-        playUrl: t.playUrl || t.url
-      }))
-      total.value = data.total || 0
+      singers.value = data.singers || []
+      const tr = data.tracks
+      tracks.value = (tr?.records || []).map(mapTrack)
+      total.value = tr?.total || 0
     }
   } catch (e) {
     console.error('Search error:', e)
@@ -278,20 +324,39 @@ const performSearch = async () => {
   }
 }
 
+const onCategoryChange = () => {
+  if (hasSearched.value && searchKeyword.value.trim()) {
+    performSearch()
+  }
+}
+
+const goSinger = (id: number) => {
+  router.push('/singer/' + id)
+}
+
+const onImgErr = (e: Event) => {
+  const el = e.target as HTMLImageElement
+  el.src = defaultCover
+}
+
 const onPageChange = async (p: number) => {
   page.value = p
   const kw = searchKeyword.value.trim()
   if (!kw) return
   loading.value = true
   try {
-    const res = await trackApi.search(kw, p, pageSize)
+    const res = await trackApi.searchPortal(kw, {
+      page: p,
+      size: pageSize,
+      singerLimit: 16,
+      categoryId: selectedCategoryId.value
+    })
     if (res.data.code === 200) {
       const data = res.data.data
-      tracks.value = (data.records || []).map((t: any) => ({
-        ...t,
-        coverUrl: t.coverUrl || t.cover,
-        playUrl: t.playUrl || t.url
-      }))
+      if (p === 1) singers.value = data.singers || []
+      const tr = data.tracks
+      tracks.value = (tr?.records || []).map(mapTrack)
+      total.value = tr?.total ?? total.value
     }
   } catch (e) {
     console.error('Search page error:', e)
@@ -377,6 +442,14 @@ onMounted(async () => {
     if (res.data.code === 200 && res.data.data) hotKeywords.value = res.data.data
   } catch (e) {
     console.error('Load hot keywords error:', e)
+  }
+  try {
+    const cr = await trackApi.getCategories()
+    if (cr.data.code === 200 && cr.data.data) {
+      categories.value = (cr.data.data as any[]).map((c: any) => ({ id: c.id, name: c.name }))
+    }
+  } catch (e) {
+    console.error('Load categories error:', e)
   }
 })
 </script>
@@ -501,7 +574,71 @@ onMounted(async () => {
   color: var(--text-tertiary);
 }
 
+.search-toolbar {
+  margin-bottom: var(--sp-4);
+}
+.category-filter { width: 180px; }
+.category-filter :deep(.el-input__wrapper) {
+  background: var(--bg-secondary);
+}
+
+.block-title {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.singer-section {
+  margin-bottom: var(--sp-6);
+  padding: var(--sp-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.singer-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+}
+.singer-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 88px;
+  padding: var(--sp-2);
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: transform var(--dur-fast), border-color var(--dur-fast);
+  border: 1px solid var(--border);
+}
+.singer-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.singer-av {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.singer-name {
+  font-size: var(--text-xs);
+  text-align: center;
+  line-height: 1.3;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .results-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   margin-bottom: var(--sp-4);
 }
 .results-header .count {

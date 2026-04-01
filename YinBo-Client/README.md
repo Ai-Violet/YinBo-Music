@@ -74,11 +74,22 @@ npm run dev
 - 评论：楼层评论、回复、点赞
 - 收藏：收藏/取消收藏歌曲
 - 歌单：创建、编辑、添加/移除歌曲
-- 用户：登录、注册、个人主页、设置、播放历史
+- 用户：登录、**邮箱验证码注册**（见后端 [EMAIL_VERIFICATION.md](../YinBo-Server/docs/EMAIL_VERIFICATION.md)）、个人主页、设置、播放历史
 - 关注：关注/取关用户
 - 通知：关注、评论回复、点赞通知（右上角铃铛+红点）
 
+## 数据库与对象存储（联调时）
+
+本仓库用户端不直接连库；数据来自后端 API。完整数据库脚本、MinIO 桶说明见：
+
+- [YinBo-Server 数据库 README](../YinBo-Server/src/main/resources/db/README.md)
+- [存储桶说明](../YinBo-Server/docs/STORAGE_BUCKET.md)
+
+Windows 下本地 MinIO 可用仓库根目录 **`startMinio.bat`**（需把其中的盘符路径改成你本机的 `minio.exe` 与数据目录）。
+
 ## 注意事项
 
-1. 启动前确保后端已运行在 `http://localhost:8080`
-2. 生产构建需配置正确的 `VITE_API_BASE_URL`
+1. 若仓库内没有 `.env.development`，请**自行新建**，至少包含 `VITE_API_BASE_URL=http://localhost:8080/api`，否则请求可能指向错误地址。
+2. 启动前确保后端已运行（默认 `http://localhost:8080/api`，注意带 `/api` 上下文路径）。
+3. 用户 Token 存 `localStorage` 键 **`user_token`**；与管理后台的 `admin_token` 互不通用。
+4. 生产构建须设置正确的 `VITE_API_BASE_URL`（指向线上 API 基地址）。

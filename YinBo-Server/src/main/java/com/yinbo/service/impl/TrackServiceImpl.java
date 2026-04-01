@@ -4,21 +4,27 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yinbo.dto.PortalSearchResult;
 import com.yinbo.dto.TrackDTO;
 import com.yinbo.entity.Category;
+import com.yinbo.entity.Comment;
 import com.yinbo.entity.Favorite;
 import com.yinbo.entity.PlayHistory;
 import com.yinbo.entity.Track;
 import com.yinbo.entity.User;
 import com.yinbo.mapper.CategoryMapper;
+import com.yinbo.mapper.CommentMapper;
 import com.yinbo.mapper.FavoriteMapper;
 import com.yinbo.mapper.PlayHistoryMapper;
 import com.yinbo.mapper.TrackMapper;
 import com.yinbo.mapper.UserMapper;
 import com.yinbo.service.MinioService;
+import com.yinbo.service.SingerService;
 import com.yinbo.service.TrackService;
 import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
+import org.jaudiotagger.tag.FieldKey;
+import org.jaudiotagger.tag.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +40,8 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -45,8 +53,10 @@ public class TrackServiceImpl extends ServiceImpl<TrackMapper, Track> implements
     private final CategoryMapper categoryMapper;
     private final UserMapper userMapper;
     private final FavoriteMapper favoriteMapper;
+    private final CommentMapper commentMapper;
     private final PlayHistoryMapper playHistoryMapper;
     private final MinioService minioService;
+    private final SingerService singerService;
     
     @Override
     @Transactional
@@ -54,9 +64,19 @@ public class TrackServiceImpl extends ServiceImpl<TrackMapper, Track> implements
                              String title, String artist, String album, 
                              Long categoryId, String lyrics, Long artistId, Long uploaderId) {
         
-        // Extract audio duration before uploading
-        int duration = extractAudioDuration(musicFile);
-        log.info("Extracted audio duration: {} seconds", duration);
+        AudioImportMeta meta = extractAudioImportMeta(musicFile);
+        int duration = meta.durationSeconds() > 0 ? meta.durationSeconds() : extractAudioDuration(musicFile);
+        if (!StringUtils.hasText(title) && StringUtils.hasText(meta.embeddedTitle())) {
+            title = meta.embeddedTitle();
+        }
+        if (!StringUtils.hasText(artist) && StringUtils.hasText(meta.embeddedArtist())) {
+            artist = meta.embeddedArtist();
+        }
+        if (!StringUtils.hasText(album) && StringUtils.hasText(meta.embeddedAlbum())) {
+            album = meta.embeddedAlbum();
+        }
+        log.info("Audio import: duration={}s, title={}, artist={}, album={}",
+                duration, title, artist, album);
         
         String musicKey = minioService.uploadMusic(musicFile);
         
@@ -92,7 +112,7 @@ public class TrackServiceImpl extends ServiceImpl<TrackMapper, Track> implements
         track.setFileSize(musicFile.getSize());
         track.setMime(musicFile.getContentType());
         track.setDeleted(0);
-        
+
         trackMapper.insert(track);
         log.info("Track uploaded: {} by {}, duration: {}s", title, artist, duration);
         
@@ -143,7 +163,79 @@ public class TrackServiceImpl extends ServiceImpl<TrackMapper, Track> implements
         }
         return 0;
     }
-    
+
+    /**
+     * 内嵌元数据：时长 + ID3 歌名/艺人/专辑（用于上传时补全空的表单字段）
+     */
+    private AudioImportMeta extractAudioImportMeta(MultipartFile file) {
+        Path tempFile = null;
+        try {
+            String originalFilename = file.getOriginalFilename();
+            String suffix = ".mp3";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                suffix = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
+            tempFile = Files.createTempFile("audio_", suffix);
+            try (InputStream is = file.getInputStream()) {
+                Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            }
+            File audioFile = tempFile.toFile();
+            int len = 0;
+            String embTitle = null;
+            String embArtist = null;
+            String embAlbum = null;
+            try {
+                AudioFile af = AudioFileIO.read(audioFile);
+                if (af != null && af.getAudioHeader() != null) {
+                    len = af.getAudioHeader().getTrackLength();
+                }
+                if (af != null) {
+                    Tag tag = af.getTag();
+                    if (tag != null) {
+                        embTitle = trimToNull(tag.getFirst(FieldKey.TITLE));
+                        embArtist = trimToNull(tag.getFirst(FieldKey.ARTIST));
+                        embAlbum = trimToNull(tag.getFirst(FieldKey.ALBUM));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("JAudioTagger meta failed for {}: {}", originalFilename, e.getMessage());
+            }
+            if (len <= 0) {
+                try {
+                    javax.sound.sampled.AudioInputStream ais =
+                            javax.sound.sampled.AudioSystem.getAudioInputStream(audioFile);
+                    long frames = ais.getFrameLength();
+                    float rate = ais.getFormat().getFrameRate();
+                    if (rate > 0 && frames > 0) len = (int) (frames / rate);
+                } catch (Exception e) {
+                    log.warn("Java Sound duration failed: {}", e.getMessage());
+                }
+            }
+            return new AudioImportMeta(len, embTitle, embArtist, embAlbum);
+        } catch (Exception e) {
+            log.warn("Failed to read audio import meta: {}", e.getMessage());
+            return new AudioImportMeta(0, null, null, null);
+        } finally {
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
+    private static String trimToNull(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    private record AudioImportMeta(int durationSeconds, String embeddedTitle, String embeddedArtist, String embeddedAlbum) {
+    }
+
     @Override
     public TrackDTO getTrackDetail(Long trackId, Long userId) {
         Track track = trackMapper.selectById(trackId);
@@ -185,9 +277,7 @@ public class TrackServiceImpl extends ServiceImpl<TrackMapper, Track> implements
                .eq(Track::getDeleted, 0);
         
         if (StringUtils.hasText(keyword)) {
-            wrapper.and(w -> w.like(Track::getTitle, keyword)
-                    .or().like(Track::getArtist, keyword)
-                    .or().like(Track::getAlbum, keyword));
+            applySearchKeyword(wrapper, keyword.trim());
         }
         if (categoryId != null) {
             wrapper.eq(Track::getCategoryId, categoryId);
@@ -290,17 +380,47 @@ public class TrackServiceImpl extends ServiceImpl<TrackMapper, Track> implements
         String kw = keyword.trim();
         LambdaQueryWrapper<Track> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Track::getStatus, 1)
-               .eq(Track::getDeleted, 0)
-               .and(w -> w.like(Track::getTitle, kw)
-                         .or()
-                         .like(Track::getArtist, kw)
-                         .or()
-                         .like(Track::getAlbum, kw));
+               .eq(Track::getDeleted, 0);
+        applySearchKeyword(wrapper, kw);
         wrapper.orderByDesc(Track::getPlayCount);
-        
+
         IPage<Track> trackPage = trackMapper.selectPage(new Page<>(page, size), wrapper);
-        
+
         return convertToDTOPage(trackPage, null);
+    }
+
+    @Override
+    public PortalSearchResult searchPortal(String keyword, int page, int size, int singerLimit, Long categoryId, Long userId) {
+        PortalSearchResult result = new PortalSearchResult();
+        result.setSingers(singerService.searchPublicSingerDTOs(keyword, singerLimit));
+        if (!StringUtils.hasText(keyword) || keyword.trim().isEmpty()) {
+            Page<TrackDTO> emptyTracks = new Page<>(page, size, 0);
+            emptyTracks.setRecords(List.of());
+            result.setTracks(emptyTracks);
+            return result;
+        }
+        String kw = keyword.trim();
+        LambdaQueryWrapper<Track> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Track::getStatus, 1).eq(Track::getDeleted, 0);
+        applySearchKeyword(wrapper, kw);
+        if (categoryId != null) {
+            wrapper.eq(Track::getCategoryId, categoryId);
+        }
+        wrapper.orderByDesc(Track::getPlayCount);
+        IPage<Track> trackPage = trackMapper.selectPage(new Page<>(page, size), wrapper);
+        result.setTracks(convertToDTOPage(trackPage, userId));
+        return result;
+    }
+
+    private void applySearchKeyword(LambdaQueryWrapper<Track> wrapper, String kw) {
+        wrapper.and(w -> w.like(Track::getTitle, kw)
+                .or().like(Track::getArtist, kw)
+                .or().like(Track::getAlbum, kw));
+    }
+
+    @Override
+    public int backfillTrackSearchNorm() {
+        return 0;
     }
     
     @Override
@@ -358,13 +478,7 @@ public class TrackServiceImpl extends ServiceImpl<TrackMapper, Track> implements
         }
         
         if (StringUtils.hasText(keyword)) {
-            wrapper.and(w -> w
-                .like(Track::getTitle, keyword)
-                .or()
-                .like(Track::getArtist, keyword)
-                .or()
-                .like(Track::getAlbum, keyword)
-            );
+            applySearchKeyword(wrapper, keyword.trim());
         }
         
         if (categoryId != null) {
@@ -385,9 +499,76 @@ public class TrackServiceImpl extends ServiceImpl<TrackMapper, Track> implements
         Page<Track> trackPage = new Page<>(1, limit);
         trackPage.setRecords(list);
         trackPage.setTotal(list.size());
-        return convertToDTOPage(trackPage, null);
+        IPage<TrackDTO> dtoPage = convertToDTOPage(trackPage, null);
+        for (TrackDTO dto : dtoPage.getRecords()) {
+            enrichRankingStats(dto);
+        }
+        return dtoPage;
     }
-    
+
+    @Override
+    public IPage<TrackDTO> getAdminTrackRanking(String type, int limit) {
+        int l = Math.min(100, Math.max(1, limit));
+        String t = type == null || type.isBlank() ? "play" : type.trim().toLowerCase();
+        return switch (t) {
+            case "favorite" -> buildRankingFromTrackIds(trackMapper.selectTopTrackIdsByFavoriteCount(l), l);
+            case "like" -> buildRankingByLikeCount(l);
+            case "comment" -> buildRankingFromTrackIds(trackMapper.selectTrackIdsByCommentCount(l, 0), l);
+            default -> getTopPlayTracks(l);
+        };
+    }
+
+    private IPage<TrackDTO> buildRankingFromTrackIds(List<Long> ids, int limit) {
+        if (ids == null || ids.isEmpty()) {
+            Page<TrackDTO> empty = new Page<>(1, limit, 0);
+            empty.setRecords(List.of());
+            return empty;
+        }
+        List<Track> raw = trackMapper.selectList(new LambdaQueryWrapper<Track>().in(Track::getId, ids));
+        Map<Long, Track> map = raw.stream().collect(Collectors.toMap(Track::getId, t -> t, (a, b) -> a));
+        List<TrackDTO> dtos = ids.stream()
+                .map(map::get)
+                .filter(Objects::nonNull)
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+        for (TrackDTO dto : dtos) {
+            enrichRankingStats(dto);
+        }
+        Page<TrackDTO> page = new Page<>(1, limit);
+        page.setRecords(dtos);
+        page.setTotal(dtos.size());
+        return page;
+    }
+
+    private IPage<TrackDTO> buildRankingByLikeCount(int limit) {
+        LambdaQueryWrapper<Track> w = new LambdaQueryWrapper<>();
+        w.eq(Track::getDeleted, 0)
+                .eq(Track::getStatus, 1)
+                .orderByDesc(Track::getLikeCount)
+                .orderByAsc(Track::getId)
+                .last("LIMIT " + limit);
+        List<Track> list = trackMapper.selectList(w);
+        List<TrackDTO> dtos = list.stream().map(this::toDTO).collect(Collectors.toList());
+        for (TrackDTO dto : dtos) {
+            enrichRankingStats(dto);
+        }
+        Page<TrackDTO> page = new Page<>(1, limit);
+        page.setRecords(dtos);
+        page.setTotal(dtos.size());
+        return page;
+    }
+
+    private void enrichRankingStats(TrackDTO dto) {
+        if (dto == null || dto.getId() == null) {
+            return;
+        }
+        Long tid = dto.getId();
+        dto.setFavoriteUserCount(favoriteMapper.selectCount(
+                new LambdaQueryWrapper<Favorite>().eq(Favorite::getTrackId, tid)));
+        dto.setTotalCommentCount(commentMapper.selectCount(
+                new LambdaQueryWrapper<Comment>().eq(Comment::getTrackId, tid).eq(Comment::getDeleted, 0)));
+    }
+
     @Override
     @Transactional
     public void updateStatus(Long trackId, int status) {
@@ -534,10 +715,18 @@ public class TrackServiceImpl extends ServiceImpl<TrackMapper, Track> implements
         if (track == null || track.getDeleted() == 1) {
             throw new RuntimeException("Track not found");
         }
-        if (StringUtils.hasText(title)) track.setTitle(title);
-        if (artist != null) track.setArtist(artist);
-        if (album != null) track.setAlbum(album);
-        if (lyrics != null) track.setLyrics(lyrics);
+        if (StringUtils.hasText(title)) {
+            track.setTitle(title.trim());
+        }
+        if (artist != null) {
+            track.setArtist(artist.isBlank() ? null : artist.trim());
+        }
+        if (album != null) {
+            track.setAlbum(album.isBlank() ? null : album.trim());
+        }
+        if (lyrics != null) {
+            track.setLyrics(lyrics.isBlank() ? null : lyrics);
+        }
         track.setCategoryId(categoryId);
         track.setArtistId(artistId);
         trackMapper.updateById(track);

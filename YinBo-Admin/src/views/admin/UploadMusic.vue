@@ -1,13 +1,14 @@
 <template>
-  <div class="upload-page admin-page">
-    <div class="upload-container admin-card">
+  <div class="upload-page admin-page page-stack">
+    <section class="admin-surface upload-hero admin-shrink-0">
       <h2 class="admin-page-title">上传音乐</h2>
+      <p class="admin-muted">与曲库页风格一致的分步表单：先确认歌手，再上传音频与封面。下方步骤内容单独滚动。</p>
 
       <!-- 步骤指示 -->
       <div class="steps">
         <div class="step" :class="{ active: step === 1, done: step > 1 }" @click="step = 1">
           <span class="step-num">1</span>
-          <span>创建/选择歌手</span>
+          <span>歌手</span>
         </div>
         <div class="step-line" :class="{ done: step > 1 }"></div>
         <div class="step" :class="{ active: step === 2 }" @click="step >= 2 && (step = 2)">
@@ -15,34 +16,59 @@
           <span>上传歌曲</span>
         </div>
       </div>
+    </section>
 
-      <!-- 步骤1: 创建/选择歌手 -->
-      <div v-show="step === 1" class="step-panel">
-        <div class="form-group">
-          <label>
-            <input type="radio" v-model="singerMode" value="select" /> 选择已有歌手
-          </label>
-          <label v-if="singerMode === 'select'" class="singer-select-wrap">
-            <el-select
-              v-model="selectedSingerId"
-              placeholder="请选择歌手"
-              filterable
-              class="enhanced-select singer-select"
-              popper-class="admin-select-dropdown"
-            >
-              <el-option v-for="s in singers" :key="s.id" :label="s.name" :value="s.id" />
-            </el-select>
-            <el-button type="default" circle size="small" @click="loadSingers" title="刷新">
-              <el-icon><Refresh /></el-icon>
-            </el-button>
-          </label>
+    <div class="scroll-fill upload-steps-scroll">
+      <div class="table-scroll-inner upload-steps-inner">
+        <section v-show="step === 1" class="admin-surface step-panel-wrap">
+      <h3 class="panel-title">选择歌手方式</h3>
+      <div class="mode-cards" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          class="mode-card"
+          :class="{ active: singerMode === 'select' }"
+          :aria-selected="singerMode === 'select'"
+          @click="singerMode = 'select'"
+        >
+          <span class="mode-card-title">选择已有歌手</span>
+          <span class="mode-card-desc">从资料库中挑选，支持搜索与刷新列表</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="mode-card"
+          :class="{ active: singerMode === 'create' }"
+          :aria-selected="singerMode === 'create'"
+          @click="singerMode = 'create'"
+        >
+          <span class="mode-card-title">新建歌手</span>
+          <span class="mode-card-desc">填写名称与简介，可上传头像后入库</span>
+        </button>
+      </div>
+
+      <div v-if="singerMode === 'select'" class="mode-body">
+        <div class="singer-toolbar">
+          <el-select
+            v-model="selectedSingerId"
+            placeholder="搜索或选择歌手"
+            filterable
+            class="enhanced-select singer-select-field"
+            popper-class="admin-select-dropdown"
+          >
+            <el-option v-for="s in singers" :key="s.id" :label="s.name" :value="s.id" />
+          </el-select>
+          <el-button type="default" plain @click="loadSingers">
+            <el-icon><Refresh /></el-icon>
+            刷新列表
+          </el-button>
         </div>
-        <div class="form-group">
-          <label>
-            <input type="radio" v-model="singerMode" value="create" /> 新建歌手
-          </label>
+        <div class="submit-section">
+          <button type="button" class="submit-btn" @click="goToStep2">下一步：上传歌曲</button>
         </div>
-        <template v-if="singerMode === 'create'">
+      </div>
+
+      <template v-if="singerMode === 'create'">
           <div class="form-row">
             <div class="form-group">
               <label>歌手名称 *</label>
@@ -74,18 +100,10 @@
               {{ singerCreating ? '创建中...' : '创建歌手并下一步' }}
             </button>
           </div>
-        </template>
-        <template v-else>
-          <div class="submit-section">
-            <button type="button" class="submit-btn" @click="goToStep2">
-              下一步：上传歌曲
-            </button>
-          </div>
-        </template>
-      </div>
+      </template>
+        </section>
 
-      <!-- 步骤2: 上传歌曲 -->
-      <div v-show="step === 2" class="step-panel">
+        <section v-show="step === 2" class="admin-surface step-panel-wrap">
         <form @submit.prevent="handleSubmit" class="upload-form">
           <div class="form-group">
             <label>音乐文件 *</label>
@@ -173,9 +191,9 @@
             </button>
           </div>
         </form>
-      </div>
-
       <div v-if="uploadSuccess" class="success-msg">上传成功！歌曲已提交审核。</div>
+        </section>
+      </div>
     </div>
 
     <CoverCropper v-model="showCropper" :image-url="originalImageUrl" @confirm="handleCoverConfirm" />
@@ -415,8 +433,96 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.upload-page { padding-bottom: 100px; }
-.upload-container { padding: var(--sp-8); }
+.upload-steps-scroll {
+  min-height: 0;
+}
+.upload-steps-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding-bottom: var(--sp-6);
+}
+
+.upload-hero .admin-page-title {
+  margin-bottom: var(--sp-2);
+}
+
+.upload-hero .steps {
+  margin-top: var(--sp-6);
+  margin-bottom: 0;
+}
+
+.step-panel-wrap {
+  padding: var(--sp-6);
+}
+
+.panel-title {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.mode-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+
+.mode-card {
+  text-align: left;
+  padding: var(--sp-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(91, 154, 136, 0.22);
+  background: color-mix(in srgb, var(--bg-hover) 94%, #ecf8f3 6%);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.mode-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 4px 14px rgba(61, 107, 94, 0.08);
+}
+
+.mode-card.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-hover) 88%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.mode-card-title {
+  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--text-primary);
+}
+
+.mode-card-desc {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.singer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  align-items: center;
+  margin-bottom: var(--sp-5);
+}
+
+.singer-select-field {
+  flex: 1 1 260px;
+  min-width: 200px;
+}
+
+.mode-body {
+  margin-top: var(--sp-2);
+}
 
 .steps { display: flex; align-items: center; gap: 0; margin-bottom: var(--sp-6); }
 .step { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; color: var(--text-tertiary); }
@@ -450,8 +556,6 @@ onMounted(() => {
 .edit-btn:hover { background: rgba(99,102,241,0.25); }
 .remove-btn:hover { background: rgba(239,68,68,0.3); }
 
-.singer-select-wrap { display: flex; gap: var(--sp-3); align-items: center; width: 100%; max-width: 360px; }
-.singer-select-wrap .singer-select { flex: 1; min-width: 0; }
 .category-select { width: 100%; }
 .enhanced-select { font-size: 15px !important; }
 .enhanced-select :deep(.el-input__wrapper) {

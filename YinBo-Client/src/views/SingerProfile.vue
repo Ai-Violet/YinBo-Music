@@ -43,46 +43,55 @@
           </select>
         </div>
       </div>
-      <div class="track-list">
+      <div class="track-list-wrap">
         <div
           v-for="(track, index) in tracks"
           :key="track.id"
-          class="track-item slide-in-left"
+          class="track-row slide-in-left"
           :style="{ animationDelay: `${index * 0.03}s` }"
           @click="playTrack(track)"
         >
-          <div class="track-cover-wrapper">
-            <img :src="track.coverUrl || defaultCover" alt="封面" class="track-cover" @error="onCoverError" />
-            <div class="track-play-overlay">
-              <div class="track-play-btn">
+          <span class="index">{{ index + 1 }}</span>
+          <div class="row-cover-wrapper">
+            <img :src="track.coverUrl || defaultCover" alt="封面" class="row-cover" @error="onCoverError" />
+            <div class="row-play-overlay">
+              <div class="row-play-btn">
                 <svg viewBox="0 0 24 24" width="18" height="18">
                   <path fill="currentColor" d="M8 5v14l11-7z"/>
                 </svg>
               </div>
             </div>
           </div>
-          <div class="track-info">
-            <h4>{{ track.title }}</h4>
-            <p>{{ track.artist }}</p>
-            <span class="album-name">{{ track.album || '-' }}</span>
+          <div class="row-info">
+            <span class="title">{{ track.title }}</span>
+            <span class="subline"><ArtistLink :artist-id="track.artistId" :artist-name="track.artist" /></span>
+            <span class="album-line">{{ track.album || '-' }}</span>
           </div>
           <span class="duration">{{ formatDuration(track.duration) }}</span>
-          <button class="play-btn" @click.stop="playTrack(track)">
-            <svg viewBox="0 0 24 24" width="20" height="20">
-              <path fill="currentColor" d="M8 5v14l11-7z"/>
-            </svg>
-          </button>
-          <button
-            v-if="isLoggedIn"
-            class="like-btn"
-            :class="{ liked: track.isFavorited }"
-            @click.stop="toggleFavorite(track)"
-            :title="track.isFavorited ? '取消收藏' : '收藏'"
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-            </svg>
-          </button>
+          <div class="row-controls">
+            <button v-if="isLoggedIn" class="ctrl-btn" title="添加到歌单" @click.stop="showAddToPlaylist(track)">
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+            </button>
+            <button class="ctrl-btn comment-btn" title="查看评论" @click.stop="goToComments(track)">
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/>
+              </svg>
+            </button>
+            <button
+              v-if="isLoggedIn"
+              class="ctrl-btn like-btn"
+              :class="{ liked: track.isFavorited }"
+              :title="track.isFavorited ? '取消收藏' : '收藏'"
+              @click.stop="toggleFavorite(track)"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <path v-if="track.isFavorited" fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                <path v-else fill="currentColor" d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
       <div v-if="loading" class="loading-state">加载中...</div>
@@ -106,6 +115,40 @@
         <p>专辑功能敬请期待</p>
       </div>
     </div>
+
+    <el-dialog
+      v-model="showAddToPlaylistDialog"
+      title="添加到歌单"
+      width="400px"
+      :close-on-click-modal="false"
+      class="pl-dialog"
+    >
+      <div v-if="selectedTrackForPl" class="add-to-playlist-body">
+        <div class="selected-track-line">
+          <img :src="selectedTrackForPl.coverUrl || defaultCover" alt="" class="pl-thumb" />
+          <div class="pl-meta">
+            <span class="pl-t">{{ selectedTrackForPl.title }}</span>
+            <span class="pl-a"><ArtistLink :artist-id="selectedTrackForPl.artistId" :artist-name="selectedTrackForPl.artist" /></span>
+          </div>
+        </div>
+        <div class="pl-list">
+          <div class="pl-list-h">选择歌单</div>
+          <div
+            v-for="pl in myPlaylists"
+            :key="pl.id"
+            class="pl-row"
+            @click="addTrackToPlaylist(pl.id)"
+          >
+            <img :src="pl.coverUrl || defaultCover" alt="" class="pl-row-cover" />
+            <div>
+              <div class="pl-row-name">{{ pl.name }}</div>
+              <div class="pl-row-sub">{{ pl.trackCount || 0 }} 首</div>
+            </div>
+          </div>
+          <div v-if="myPlaylists.length === 0" class="pl-empty">暂无歌单，请先创建</div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -114,15 +157,16 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { usePlayerStore } from '../stores/player'
-import { singerApi, trackApi, favoriteApi } from '../api'
+import { singerApi, trackApi, favoriteApi, playlistApi } from '../api'
 import type { Track } from '../types'
 import { ElMessage } from 'element-plus'
+import ArtistLink from '../components/ArtistLink.vue'
+import { DEFAULT_AVATAR_COVER } from '../constants'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const playerStore = usePlayerStore()
-import { DEFAULT_AVATAR_COVER } from '../constants'
 const defaultCover = DEFAULT_AVATAR_COVER
 
 const singerId = computed(() => route.params.id ? Number(route.params.id) : null)
@@ -141,6 +185,9 @@ const selectedCategoryId = ref<number | ''>('')
 const activeTab = ref('songs')
 const searchTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const avatarLoadFailed = ref(false)
+const showAddToPlaylistDialog = ref(false)
+const selectedTrackForPl = ref<Track | null>(null)
+const myPlaylists = ref<any[]>([])
 
 const singerName = computed(() => singerInfo.value?.name || artistNameFromQuery.value || '歌手')
 const singerDescription = computed(() => singerInfo.value?.description || '')
@@ -271,6 +318,48 @@ function playAll() {
   playTrack(tracks.value[0])
 }
 
+async function loadMyPlaylists() {
+  if (!userStore.currentUser) {
+    myPlaylists.value = []
+    return
+  }
+  try {
+    const res = await playlistApi.getMyPlaylists(1, 200)
+    if (res.data.code === 200 && res.data.data) {
+      const d = res.data.data as any
+      myPlaylists.value = Array.isArray(d) ? d : (d.records || [])
+    }
+  } catch (_) {
+    myPlaylists.value = []
+  }
+}
+
+function showAddToPlaylist(track: Track) {
+  if (!userStore.currentUser) {
+    router.push('/login')
+    return
+  }
+  selectedTrackForPl.value = track
+  showAddToPlaylistDialog.value = true
+  loadMyPlaylists()
+}
+
+function goToComments(track: Track) {
+  router.push(`/track/${track.id}`)
+}
+
+async function addTrackToPlaylist(playlistId: number) {
+  if (!selectedTrackForPl.value) return
+  try {
+    await playlistApi.addTrack(playlistId, selectedTrackForPl.value.id)
+    ElMessage.success('已添加到歌单')
+    showAddToPlaylistDialog.value = false
+    selectedTrackForPl.value = null
+  } catch (_) {
+    ElMessage.error('添加失败')
+  }
+}
+
 async function toggleFavorite(track: Track) {
   if (!userStore.currentUser) {
     ElMessage.warning('请先登录')
@@ -299,6 +388,7 @@ onMounted(async () => {
   }
   await loadCategories()
   await loadTracks(true)
+  if (userStore.currentUser) loadMyPlaylists()
 })
 
 watch([() => route.params.id, () => route.query.name], async () => {
@@ -445,12 +535,6 @@ watch([() => route.params.id, () => route.query.name], async () => {
   cursor: pointer;
 }
 
-.track-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-}
-
 @keyframes slideInLeft {
   from { opacity: 0; transform: translateX(-10px); }
   to { opacity: 1; transform: translateX(0); }
@@ -461,116 +545,269 @@ watch([() => route.params.id, () => route.query.name], async () => {
   opacity: 0;
 }
 
-.track-item {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  padding: var(--sp-4) var(--sp-5);
-  background: var(--bg-secondary);
+/* 与主页「最新音乐」一致 */
+.track-list-wrap {
+  background: var(--bg-hover);
   border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid var(--border);
-}
-
-.track-item:hover {
-  background: var(--bg-elevated);
-  border-color: var(--border-hover);
-  transform: translateX(4px);
-}
-
-.track-cover-wrapper {
-  position: relative;
-  width: 50px;
-  height: 50px;
-  flex-shrink: 0;
-  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
-.track-cover {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.track-list-wrap .track-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 14px var(--sp-5);
+  cursor: pointer;
+  transition: background var(--dur-fast) ease;
+  border-bottom: 1px solid var(--border);
 }
 
-.track-play-overlay {
+.track-list-wrap .track-row:last-child {
+  border-bottom: none;
+}
+
+.track-list-wrap .track-row:hover {
+  background: var(--accent-muted);
+}
+
+.track-list-wrap .index {
+  width: 30px;
+  text-align: center;
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.track-list-wrap .track-row:hover .index {
+  color: var(--accent);
+}
+
+.track-list-wrap .row-cover {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-fast);
+}
+
+.track-list-wrap .row-cover-wrapper {
+  position: relative;
+  width: 50px;
+  height: 50px;
+}
+
+.track-list-wrap .row-play-overlay {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-md);
   opacity: 0;
   transition: opacity var(--dur-fast);
 }
 
-.track-item:hover .track-play-overlay {
+.track-list-wrap .track-row:hover .row-play-overlay {
   opacity: 1;
 }
 
-.track-play-btn {
-  width: 28px;
-  height: 28px;
+.track-list-wrap .row-play-btn {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--play-overlay-btn-bg);
   color: var(--play-overlay-btn-color);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform var(--dur-fast);
 }
 
-.track-info {
+.track-list-wrap .row-play-btn:hover {
+  transform: scale(1.1);
+}
+
+.track-list-wrap .row-play-btn svg {
+  margin-left: 2px;
+}
+
+.track-list-wrap .track-row:hover .row-cover {
+  transform: scale(1.05);
+}
+
+.track-list-wrap .row-info {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.track-list-wrap .row-info .title {
+  font-size: var(--text-base);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-list-wrap .row-info .subline {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.track-list-wrap .row-info .album-line {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.track-list-wrap .duration {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  min-width: 45px;
+  text-align: right;
+}
+
+.track-list-wrap .row-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.track-list-wrap .ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--dur-fast);
+  opacity: 0;
+}
+
+.track-list-wrap .ctrl-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.track-list-wrap .track-row:hover .row-controls .ctrl-btn {
+  opacity: 1;
+}
+
+.track-list-wrap .ctrl-btn.like-btn {
+  opacity: 1;
+}
+
+.track-list-wrap .ctrl-btn:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.track-list-wrap .ctrl-btn.like-btn.liked {
+  color: var(--red);
+}
+
+.pl-dialog :deep(.el-dialog__close) {
+  color: var(--text-tertiary);
+}
+
+.add-to-playlist-body {
+  padding: 8px 0;
+}
+
+.selected-track-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--sp-4);
+}
+
+.pl-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.pl-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   min-width: 0;
 }
 
-.track-info h4 {
-  margin: 0 0 var(--sp-1);
-  font-size: var(--text-base);
+.pl-t {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pl-a {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.pl-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.pl-list-h {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  padding-bottom: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.pl-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+
+.pl-row:hover {
+  background: var(--bg-active);
+}
+
+.pl-row-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.pl-row-name {
   font-weight: 500;
   color: var(--text-primary);
 }
 
-.track-info p {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-.album-name {
+.pl-row-sub {
   font-size: var(--text-xs);
-  color: var(--text-muted);
-  margin-left: var(--sp-2);
+  color: var(--text-tertiary);
 }
 
-.duration {
+.pl-empty {
+  text-align: center;
+  padding: var(--sp-6);
+  color: var(--text-tertiary);
   font-size: var(--text-sm);
-  color: var(--text-muted);
-  min-width: 45px;
 }
-
-.play-btn, .like-btn {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: none;
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  cursor: pointer;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.play-btn:hover, .like-btn:hover {
-  background: var(--accent-muted);
-  color: var(--accent);
-}
-
-.like-btn.liked { color: var(--red, #ef4444); }
 
 .loading-state, .empty {
   text-align: center;

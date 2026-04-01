@@ -31,13 +31,15 @@ public class CommentController {
         return Result.success(commentService.getTrackComments(trackId, page, size, currentUserId));
     }
     
-    @Operation(summary = "Get comment replies")
+    @Operation(summary = "Get comment replies (flat thread under root floor)")
     @GetMapping("/{commentId}/replies")
     public Result<IPage<CommentDTO>> getCommentReplies(
             @PathVariable Long commentId,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        return Result.success(commentService.getReplies(commentId, page, size));
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal CurrentUser user) {
+        Long uid = user != null ? user.getUserId() : null;
+        return Result.success(commentService.getReplies(commentId, page, size, uid));
     }
     
     @Operation(summary = "Add comment")

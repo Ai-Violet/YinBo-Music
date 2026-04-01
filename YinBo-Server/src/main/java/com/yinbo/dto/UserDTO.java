@@ -14,7 +14,6 @@ public class UserDTO {
     private Integer status;
     private String createdAt;
     
-    // ????
     private String gender;
     private String birthday;
     private String region;

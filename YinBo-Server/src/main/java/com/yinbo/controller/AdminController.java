@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.yinbo.common.Result;
 import com.yinbo.dto.TrackDTO;
 import com.yinbo.entity.Category;
+import com.yinbo.dto.AdminCommentUserStatDTO;
 import com.yinbo.dto.CommentDTO;
 import com.yinbo.entity.Comment;
 import com.yinbo.entity.Singer;
@@ -83,12 +84,13 @@ public class AdminController {
         return Result.success(trackService.getAdminTracks(page, size, status, keyword, categoryId));
     }
     
-    @Operation(summary = "Get top played tracks (ranking)")
+    @Operation(summary = "Get track rankings for admin (play / favorite / like / comment)")
     @GetMapping("/tracks/ranking")
     @PreAuthorize("hasRole('ADMIN')")
     public Result<IPage<TrackDTO>> getTrackRanking(
+            @RequestParam(defaultValue = "play") String type,
             @RequestParam(defaultValue = "10") int limit) {
-        return Result.success(trackService.getTopPlayTracks(limit));
+        return Result.success(trackService.getAdminTrackRanking(type, limit));
     }
     
     @Operation(summary = "Get all categories")
@@ -370,8 +372,20 @@ public class AdminController {
     public Result<IPage<CommentDTO>> getAllComments(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) Long trackId) {
-        return Result.success(commentService.getAllComments(page, size, trackId));
+            @RequestParam(required = false) Long trackId,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false, defaultValue = "newest") String sort) {
+        return Result.success(commentService.getAllComments(page, size, trackId, userId, sort));
+    }
+
+    @Operation(summary = "Comment counts grouped by user (admin)")
+    @GetMapping("/comments/user-stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<IPage<AdminCommentUserStatDTO>> getCommentUserStats(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String keyword) {
+        return Result.success(commentService.getCommentUserStats(page, size, keyword));
     }
 
     @Operation(summary = "Audit comment")

@@ -9,9 +9,9 @@ import lombok.Data;
 @Data
 public class LoginRequest {
     
-    @NotBlank(message = "�û�������Ϊ��")
+    @NotBlank(message = "账号不能为空")
     private String username;
     
-    @NotBlank(message = "���벻��Ϊ��")
+    @NotBlank(message = "密码不能为空")
     private String password;
 }

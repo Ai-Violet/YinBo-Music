@@ -16,6 +16,7 @@
 8. [启动与部署流程](#8-启动与部署流程)
 9. [功能测试清单](#9-功能测试清单)
 10. [页面截图与论文配图建议](#10-页面截图与论文配图建议)
+11. [常见问题、已知限制与注意事项](#11-常见问题已知限制与注意事项)
 
 ---
 
@@ -100,7 +101,7 @@
 | 服务 | 默认端口 | 用途 |
 |------|----------|------|
 | MySQL | 3306 | 业务数据持久化 |
-| Redis | 6379 | 缓存、Session（如使用） |
+| Redis | 6379 | 缓存、验证码冷却等（默认使用 `database: 1`） |
 | MinIO API | 9000 | 对象存储 API |
 | MinIO Console | 9005 | MinIO 管理界面 |
 
@@ -145,9 +146,10 @@ YinBo-music/
 │   │   ├── api/
 │   │   ├── views/admin/
 │   │   └── utils/
-│   ├── .env.development
+│   ├── .env.development             # 需自行创建（示例见下文）
 │   └── .env.production
 │
+├── startMinio.bat                   # Windows 下本地启动 MinIO（路径需按本机修改）
 └── README.md
 ```
 
@@ -168,7 +170,7 @@ YinBo-music/
 | `spring.datasource.password` | 数据库密码 | 123456 |
 | `spring.data.redis.host` | Redis 主机 | 127.0.0.1 |
 | `spring.data.redis.port` | Redis 端口 | 6379 |
-| `spring.data.redis.password` | Redis 密码 | 123456 |
+| `spring.data.redis.password` | Redis 密码 | **默认未配置**（本机 Redis 无密码时保持注释；有密码则取消注释并填写） |
 | `minio.endpoint` | MinIO 地址 | http://127.0.0.1:9000 |
 | `minio.access-key` | MinIO 访问密钥 | minio |
 | `minio.secret-key` | MinIO 密钥 | 12345678 |
@@ -224,13 +226,18 @@ VITE_CLIENT_URL=https://music.yinbo-music.com
 
 ### 5.1 创建与导入
 
-```bash
-# 1. 创建数据库
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS yinbo_music DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+脚本 `yinbo_music.sql` **已内含** `CREATE DATABASE` 与 `USE yinbo_music`，可直接整文件执行，亦可先建库再导入：
 
-# 2. 导入完整脚本
+```bash
+# 方式 A：整文件执行（推荐，避免 1046 No database selected）
+mysql -u root -p < YinBo-Server/src/main/resources/db/yinbo_music.sql
+
+# 方式 B：先建库再导入
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS yinbo_music DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql -u root -p yinbo_music < YinBo-Server/src/main/resources/db/yinbo_music.sql
 ```
+
+更多表说明见 [数据库目录 README](YinBo-Server/src/main/resources/db/README.md)。
 
 ### 5.2 核心表结构
 
@@ -258,14 +265,32 @@ mysql -u root -p yinbo_music < YinBo-Server/src/main/resources/db/yinbo_music.sq
 | `cover_key` | cover/ | 封面图 |
 | `lyric_key` | lyrics/ | 歌词文件 |
 
+### 5.4 可选：`search_norm` 检索列
+
+脚本 `yinbo_music.sql` 末尾有**注释掉**的 `ALTER TABLE`，用于为 `tracks`、`singers` 增加 `search_norm`（拼音/归一化检索）。当前实体若未映射该列，**不要执行**；若执行，须在实体与 Mapper 中同步字段。需要批量回填时可将 `application.yml` 中 `yinbo.search.backfill-on-startup` 设为 `true` **仅启动一次**，完成后改回 `false`（详见 `SearchNormBootstrap`）。
+
 ---
 
 ## 6. MinIO 安装、配置与 MC 权限管理
 
+### 6.0 Windows：`startMinio.bat`（本地二进制）
+
+仓库根目录提供 **`startMinio.bat`**，用于在 Windows 上一键启动本地 `minio.exe`：
+
+| 项 | 说明 |
+|----|------|
+| 作用 | `cd` 到 `minio.exe` 所在目录后执行 `server`，数据目录与控制台端口与项目默认配置一致 |
+| **必须修改** | 批处理内路径为作者本机示例：`F:\MinIO\bin` 与 `F:\MinIO\data`，克隆到自己的机器后请改成你的 `minio.exe` 与数据目录 |
+| API | `--address "127.0.0.1:9000"`，须与 `application.yml` 中 `minio.endpoint`（如 `http://127.0.0.1:9000`）一致 |
+| 控制台 | `--console-address "127.0.0.1:9005"` |
+| 账号 | 首次启动时按 MinIO 文档设置；须与 `minio.access-key` / `minio.secret-key` 一致 |
+
+若使用 Docker 启动，**无需**使用该 bat 文件。
+
 ### 6.1 MinIO 安装
 
 #### 方式一：Docker（推荐）
-
+![Minio配置命令.png](YinBo-Server/docs/Minio%E9%85%8D%E7%BD%AE%E5%91%BD%E4%BB%A4.png)
 ```bash
 docker run -d -p 9000:9000 -p 9005:9005 \
   -e MINIO_ROOT_USER=minio \
@@ -282,13 +307,14 @@ docker run -d -p 9000:9000 -p 9005:9005 \
 1. 下载：https://min.io/download  
 2. 解压得到 `minio.exe`  
 3. 运行：
-
 ```powershell
 minio.exe server D:\minio-data --console-address ":9005"
 ```
+![Minio桶的Bin目录.png](YinBo-Server/docs/Minio%E6%A1%B6%E7%9A%84Bin%E7%9B%AE%E5%BD%95.png)
+![Minio桶的data目录.png](YinBo-Server/docs/Minio%E6%A1%B6%E7%9A%84data%E7%9B%AE%E5%BD%95.png)
 
 ### 6.2 桶目录结构（后端自动创建）
-
+![Minio桶的音波项目文件目录.png](YinBo-Server/docs/Minio%E6%A1%B6%E7%9A%84%E9%9F%B3%E6%B3%A2%E9%A1%B9%E7%9B%AE%E6%96%87%E4%BB%B6%E7%9B%AE%E5%BD%95.png)
 ```
 yinbomusic/
 ├── music/      # 歌曲音频
@@ -316,7 +342,7 @@ brew install minio/stable/mc   # macOS
 ```
 
 #### 配置别名并设置桶策略
-
+![Minio桶的权限修改帮助.png](YinBo-Server/docs/Minio%E6%A1%B6%E7%9A%84%E6%9D%83%E9%99%90%E4%BF%AE%E6%94%B9%E5%B8%AE%E5%8A%A9.png)
 ```bash
 # 1. 添加 MinIO 别名（用户名/密码与 docker 中一致）
 mc alias set myminio http://localhost:9000 minio 12345678
@@ -338,12 +364,13 @@ mc anonymous get myminio/yinbomusic
 
 ### 6.4 后端 MinIO 初始化原理
 
-`MinioInitializer` 实现 `CommandLineRunner`，在 Spring Boot 启动后执行：
-1. 若桶不存在则创建 `yinbomusic`
-2. 设置桶策略为 `s3:GetObject` 公开读
-3. 创建目录占位（music/、cover/、avatar/）
+`MinioInitializer`（`com.yinbo.config.MinioInitializer`）在 Spring Boot 启动后执行：
 
-若 MinIO 未启动，初始化会失败并打印提示，但应用仍可启动（公开接口可访问，上传功能不可用）。
+1. 若桶不存在则创建 `yinbomusic`（名称取自 `minio.bucket-name.main`）
+2. 始终尝试设置桶策略为 `s3:GetObject` 公开读（兼容「桶已存在但策略未设」的情况）
+3. 写入目录占位：`music/`、`cover/`、`avatar/`（每个目录下 `.gitkeep` 空对象）；`lyrics/`、`singer/` 在实际首次上传时创建即可
+
+若 MinIO 未启动或网络不通，初始化会打错误日志并提示检查 MinIO；**应用进程通常仍可继续启动**，但上传媒体、部分依赖直链/预签名的能力会不可用。
 
 ---
 
@@ -514,6 +541,38 @@ export const trackApi = {
 
 ---
 
+## 11. 常见问题、已知限制与注意事项
+
+### 11.1 环境与配置
+
+- **MySQL**：库名、字符集须与 `application.yml` 一致（`yinbo_music`，`utf8mb4`）；时区建议 `Asia/Shanghai`。
+- **Redis**：当前模板默认**无密码**；若本机 Redis 设置了密码，须在 `application.yml` 中取消注释 `spring.data.redis.password`。项目使用 `database: 1`，避免与默认 `0` 库其它应用冲突。
+- **MinIO**：`startMinio.bat` 为示例路径，**不修改则无法在你电脑上直接使用**；密钥须与 `application.yml` 中 `minio.*` 一致。
+- **邮箱验证码（注册）**：流程、Redis 键规则、接口与 QQ 邮箱 SMTP 详见 [**邮箱验证码说明**](YinBo-Server/docs/EMAIL_VERIFICATION.md)。QQ 邮箱须使用 **587 + STARTTLS**，勿用 465。**授权码不要提交仓库**，用 `SPRING_MAIL_PASSWORD` 等环境变量覆盖。
+- **JWT 与管理员口令**：生产环境必须更换 `jwt.secret`；注册时 `adminKey: yinbo` 仅为开发/演示用途，公开部署须关闭或改为强密钥与后台审核流程。
+
+### 11.2 后端行为与工程权衡
+
+- **`spring.main.allow-circular-references: true`**：为缓解 Bean 循环依赖开启，长期建议重构依赖方向后关闭。
+- **MyBatis `log-impl: StdOutImpl`**：开发期便于调试，**生产环境应关闭或改为普通日志级别**，否则 SQL 会刷屏且影响性能与安全审计。
+- **`yinbo.search.backfill-on-startup`**：仅在为表增加 `search_norm` 且需要回填时临时设为 `true`，执行一次后务必改回 `false`。
+
+### 11.3 前端
+
+- **环境变量文件**：`YinBo-Client`、 `YinBo-Admin` 的 `.env.development` 通常**不会**随仓库提交，拉代码后需按本文第 4 节自行创建，否则 `VITE_API_BASE_URL` 可能为空导致请求失败。
+- **Token**：用户端用 `user_token`，管理端用 `admin_token`；管理后台须调用管理员登录接口（如 `/auth/admin/login`），不可用普通用户 Token 调 `/admin/**`。
+
+### 11.4 媒体与 MinIO
+
+- 若封面、头像浏览器**直连 MinIO URL** 仍 403，除检查 `MinioInitializer` 是否执行成功外，可用文档第 6.3 节 **`mc anonymous set download`** 强制公开读。
+- 音频播放多使用**预签名 URL**，与桶公开策略是两条路径；若播放失败，优先查后端日志与 MinIO 连通性。
+
+### 11.5 文档与资源路径
+
+- 根目录 README 中部分配图位于 `YinBo-Server/docs/`，文件名含中文 URL 编码；若图片不显示，请用资源管理器打开同路径文件确认是否存在。
+
+---
+
 ## 附录：相关文档
 
 - [后端 README](YinBo-Server/README.md)  
@@ -521,6 +580,7 @@ export const trackApi = {
 - [管理后台 README](YinBo-Admin/README.md)  
 - [数据库说明](YinBo-Server/src/main/resources/db/README.md)  
 - [MinIO 存储桶说明](YinBo-Server/docs/STORAGE_BUCKET.md)  
+- [**邮箱验证码（注册）说明**](YinBo-Server/docs/EMAIL_VERIFICATION.md)  
 
 ---
 

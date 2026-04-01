@@ -29,7 +29,12 @@ public class Track {
     private Integer status;
     private Long uploaderId;
     private Long categoryId;
-    
+    /**
+     * 拼音检索辅助字段；需执行 <code>ALTER TABLE tracks ADD search_norm...</code> 后改为 exist=true 并去掉本注解。
+     */
+    @TableField(exist = false)
+    private String searchNorm;
+
     @TableLogic
     private Integer deleted;
     

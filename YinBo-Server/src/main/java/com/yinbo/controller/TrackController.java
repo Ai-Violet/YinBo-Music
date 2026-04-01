@@ -2,6 +2,7 @@ package com.yinbo.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.yinbo.common.Result;
+import com.yinbo.dto.PortalSearchResult;
 import com.yinbo.dto.TrackDTO;
 import com.yinbo.entity.Category;
 import com.yinbo.entity.Track;
@@ -88,6 +89,20 @@ public class TrackController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
         return Result.success(trackService.searchTracks(keyword != null ? keyword : "", page, size));
+    }
+
+    @Operation(summary = "聚合搜索：歌手 + 歌曲（含拼音/首字母 search_norm）")
+    @GetMapping("/public/search/portal")
+    public Result<PortalSearchResult> searchPortal(
+            @RequestParam(required = false, defaultValue = "") String keyword,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "12") int singerLimit,
+            @RequestParam(required = false) Long categoryId,
+            @AuthenticationPrincipal CurrentUser user) {
+        Long userId = user != null ? user.getUserId() : null;
+        return Result.success(trackService.searchPortal(
+                keyword != null ? keyword : "", page, size, singerLimit, categoryId, userId));
     }
     
     @Operation(summary = "Get search hot keywords")

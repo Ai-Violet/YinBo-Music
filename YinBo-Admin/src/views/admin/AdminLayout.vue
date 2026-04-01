@@ -1,5 +1,5 @@
 <template>
-  <div class="admin-layout">
+  <div class="admin-layout" :class="{ 'admin-layout--collapsed': sidebarCollapsed }">
     <!-- 侧边栏 -->
     <aside class="sidebar">
       <div class="logo">
@@ -7,7 +7,7 @@
         <span class="logo-sub">管理后台</span>
       </div>
       
-      <nav class="nav-menu">
+      <nav id="admin-sidebar-nav" class="nav-menu">
         <router-link to="/" class="nav-item" exact-active-class="active">
           <svg viewBox="0 0 24 24" width="20" height="20">
             <path fill="currentColor" d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
@@ -71,7 +71,21 @@
     <!-- 主内容区 -->
     <main class="main-content">
       <header class="top-bar">
-        <h1>{{ pageTitle }}</h1>
+        <div class="top-bar-left">
+          <button
+            type="button"
+            class="sidebar-toggle"
+            :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+            :aria-expanded="!sidebarCollapsed"
+            aria-controls="admin-sidebar-nav"
+            @click="toggleSidebar"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path fill="currentColor" d="M3 18h12v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
+            </svg>
+          </button>
+          <h1>{{ pageTitle }}</h1>
+        </div>
         <div class="user-section">
           <!-- 头像 -->
           <div class="avatar-wrapper" @click="triggerAvatarUpload">
@@ -140,7 +154,9 @@
       </header>
       
       <div class="content">
-        <router-view />
+        <div class="router-view-host">
+          <router-view />
+        </div>
       </div>
     </main>
     
@@ -190,6 +206,19 @@ const handleThemeToggle = () => {
 
 const clientUrl = import.meta.env.VITE_CLIENT_URL || 'http://localhost:8081'
 const defaultAvatar = 'https://via.placeholder.com/80?text=Admin'
+
+const SIDEBAR_LS = 'yinbo-admin-sidebar-collapsed'
+const sidebarCollapsed = ref(
+  typeof localStorage !== 'undefined' && localStorage.getItem(SIDEBAR_LS) === '1'
+)
+const toggleSidebar = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  try {
+    localStorage.setItem(SIDEBAR_LS, sidebarCollapsed.value ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
 
 // 状态
 const showDropdown = ref(false)
@@ -350,10 +379,54 @@ onBeforeUnmount(() => {
 
 .sidebar {
   width: 240px;
-  background: var(--bg-secondary);
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--bg-secondary) 94%, #e8f5ef 6%);
+  border-right: 1px solid rgba(91, 154, 136, 0.1);
   display: flex;
   flex-direction: column;
   padding: var(--sp-5) 0;
+  transition: width 0.22s ease, padding 0.22s ease;
+}
+
+.admin-layout--collapsed .sidebar {
+  width: 76px;
+}
+
+.admin-layout--collapsed .logo {
+  padding-left: var(--sp-3);
+  padding-right: var(--sp-3);
+}
+
+.admin-layout--collapsed .logo-sub {
+  display: none;
+}
+
+.admin-layout--collapsed .nav-item {
+  justify-content: center;
+  padding-left: var(--sp-3);
+  padding-right: var(--sp-3);
+  gap: 0;
+}
+
+.admin-layout--collapsed .nav-item span {
+  display: none;
+}
+
+.admin-layout--collapsed .nav-item.active {
+  border-left-width: 0;
+  border-radius: var(--radius-md);
+}
+
+.admin-layout--collapsed .bottom-section {
+  padding: var(--sp-3);
+}
+
+.admin-layout--collapsed .back-link {
+  justify-content: center;
+}
+
+.admin-layout--collapsed .back-link span {
+  display: none;
 }
 
 .logo {
@@ -435,13 +508,47 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   padding: var(--sp-4) var(--sp-8);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, #f0faf6 8%);
+  border-bottom: 1px solid rgba(91, 154, 136, 0.1);
+  flex-shrink: 0;
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+.sidebar-toggle {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(91, 154, 136, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+}
+
+.sidebar-toggle:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--bg-hover);
 }
 
 .top-bar h1 {
   margin: 0;
   font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-section {
@@ -578,10 +685,32 @@ onBeforeUnmount(() => {
 
 .content {
   flex: 1;
-  padding: var(--sp-6) var(--sp-8);
-  overflow-y: auto;
-  max-height: calc(100vh - 70px);
-  background: var(--bg-primary);
+  min-height: 0;
+  padding: var(--sp-5) var(--sp-8) var(--sp-8);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-primary) 92%, #ecf8f3 8%) 0%,
+    var(--bg-primary) 48%
+  );
+}
+
+.router-view-host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.router-view-host > * {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .modal-overlay {

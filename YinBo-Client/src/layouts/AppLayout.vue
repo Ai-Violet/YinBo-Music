@@ -13,13 +13,15 @@
       style="display: none"
     />
 
-    <!-- 主内容区域 -->
+    <!-- 主内容区域（子页面可 flex:1 填满，首页等可做「仅列表区滚动」） -->
     <main class="main-content">
-      <router-view v-slot="{ Component }">
-        <transition name="page-fade" mode="out-in">
-          <component :is="Component" :key="route.fullPath" />
-        </transition>
-      </router-view>
+      <div class="app-route-outlet">
+        <router-view v-slot="{ Component }">
+          <transition name="page-fade" mode="out-in">
+            <component :is="Component" :key="route.fullPath" />
+          </transition>
+        </router-view>
+      </div>
     </main>
     
     <!-- 固定播放栏 - 始终显示（除了管理后台） -->
@@ -249,7 +251,24 @@ onUnmounted(() => {
 
 .main-content {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   padding-bottom: var(--player-h);
+}
+
+.app-route-outlet {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 路由根节点（如 Home）参与纵向 flex，才能在内层做「仅列表滚动」 */
+.app-route-outlet > * {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }
 
 /* Page transition */

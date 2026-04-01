@@ -136,7 +136,11 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.dashboard {
+.dashboard.admin-page {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: var(--sp-5);
 }
 

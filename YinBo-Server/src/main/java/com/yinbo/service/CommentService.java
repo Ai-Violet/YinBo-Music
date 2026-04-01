@@ -2,6 +2,7 @@ package com.yinbo.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.yinbo.dto.AdminCommentUserStatDTO;
 import com.yinbo.dto.CommentDTO;
 import com.yinbo.entity.Comment;
 
@@ -34,7 +35,7 @@ public interface CommentService extends IService<Comment> {
     /**
      * Get comment replies
      */
-    IPage<CommentDTO> getReplies(Long commentId, int page, int size);
+    IPage<CommentDTO> getReplies(Long rootCommentId, int page, int size, Long currentUserId);
     
     /**
      * Like comment
@@ -58,8 +59,15 @@ public interface CommentService extends IService<Comment> {
 
     /**
      * Get all comments (admin) - 全部评论，含歌曲信息
+     *
+     * @param sort newest | likes | hot | replies
      */
-    IPage<CommentDTO> getAllComments(int page, int size, Long trackId);
+    IPage<CommentDTO> getAllComments(int page, int size, Long trackId, Long userId, String sort);
+
+    /**
+     * 按用户聚合评论统计（管理端「按用户」分区）
+     */
+    IPage<AdminCommentUserStatDTO> getCommentUserStats(int page, int size, String keyword);
 
     /**
      * Delete comment (admin)

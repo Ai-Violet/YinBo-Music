@@ -15,7 +15,10 @@ public class Singer {
     private String name;
     private String avatarKey;
     private String description;
-    
+    /** 拼音检索；见 tracks.search_norm 说明，列存在后可去掉 exist = false */
+    @TableField(exist = false)
+    private String searchNorm;
+
     @TableLogic
     private Integer deleted;
     

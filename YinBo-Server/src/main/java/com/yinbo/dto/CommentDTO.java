@@ -18,6 +18,9 @@ public class CommentDTO {
     private String userAvatar;
     private String content;
     private Long parentId;
+    private Long rootCommentId;
+    private Long replyToUserId;
+    private String replyToNickname;
     private Integer floor;
     private Integer likeCount;
     private Boolean isLiked;

@@ -8,13 +8,24 @@
 
 ## 使用方式
 
-```bash
-# 1. 创建数据库
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS yinbo_music DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+`yinbo_music.sql` 文件头部已含 `CREATE DATABASE` 与 `USE yinbo_music`，推荐**整文件**执行：
 
-# 2. 导入脚本
+```bash
+mysql -u root -p < yinbo_music.sql
+```
+
+也可分步：
+
+```bash
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS yinbo_music DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql -u root -p yinbo_music < yinbo_music.sql
 ```
+
+导入后请核对 `application.yml` 中数据源 URL 指向同一库名与字符集（`utf8mb4`）。
+
+## 可选：`search_norm` 列（高级检索）
+
+脚本**末尾注释**中有针对 `tracks`、`singers` 的 `ALTER TABLE ... ADD search_norm ...`。若当前后端实体未映射该列，请勿取消注释执行。若将来启用，需同步 Java 实体与 Mapper，并可配合 `yinbo.search.backfill-on-startup` 做一次回填（详见根目录 README「search_norm」说明）。
 
 ## 表结构概览
 

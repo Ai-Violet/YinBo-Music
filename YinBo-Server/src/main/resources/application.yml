@@ -22,7 +22,8 @@ spring:
     redis:
       host: 127.0.0.1
       port: 6379
-      password: 123456
+      # 无密码时请整行删除，勿留 password:
+      # password: 123456
       database: 1
       timeout: 10000ms
       lettuce:
@@ -43,6 +44,35 @@ spring:
     time-zone: Asia/Shanghai
   messages:
     encoding: UTF-8
+  # 邮件（邮箱验证码）— QQ 必须用 587 + STARTTLS；勿用 465，勿设 SPRING_MAIL_PORT=465
+  mail:
+    host: smtp.qq.com
+    port: 587
+    default-encoding: UTF-8
+    username: '2651906780@qq.com'
+    password: ${SPRING_MAIL_PASSWORD:brlbmljkaqbgeade}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          connectiontimeout: 15000
+          timeout: 15000
+          writetimeout: 15000
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            # 587 为「先明文连上再 STARTTLS 升级」，此处勿开整链路 SSL
+            enable: false
+            trust: smtp.qq.com
+            protocols: TLSv1.2
+
+yinbo:
+  mail:
+    from-name: 音波音乐
+  search:
+    # 首次增加 search_norm 列后可设为 true 启动一次以回填现有曲目/歌手，完成后改回 false
+    backfill-on-startup: false
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml

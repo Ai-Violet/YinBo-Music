@@ -1,36 +1,44 @@
 <template>
-  <div class="announce-page admin-page">
-    <div class="admin-header">
-      <h2 class="admin-page-title">公告管理</h2>
-      <button class="admin-btn admin-btn-primary" @click="showCreate = true">发布公告</button>
-    </div>
-
-    <div class="announce-list">
-      <div v-for="item in announcements" :key="item.id" class="announce-card admin-card">
-        <div class="card-header">
-          <span class="card-title">{{ item.title }}</span>
-          <span class="status-badge" :class="item.status === 1 ? 'active' : 'disabled'">
-            {{ item.status === 1 ? '展示中' : '已关闭' }}
-          </span>
+  <div class="announce-page admin-page page-stack">
+    <section class="admin-surface page-intro admin-shrink-0">
+      <div class="intro-row">
+        <div>
+          <h2 class="admin-page-title">公告管理</h2>
+          <p class="admin-muted">用户端首页/弹窗展示的公告；列表单独滚动，及时开关展示状态。</p>
         </div>
-        <p class="card-content">{{ item.content }}</p>
-        <div class="card-footer">
-          <span class="card-time">{{ formatTime(item.createdAt) }}</span>
-          <div class="card-actions">
-            <button class="admin-btn admin-btn-ghost" @click="toggleStatus(item)">
-              {{ item.status === 1 ? '关闭' : '启用' }}
-            </button>
-            <button class="admin-btn admin-btn-danger" @click="deleteAnnounce(item.id)">删除</button>
-          </div>
-        </div>
+        <el-button type="primary" @click="openCreate">发布公告</el-button>
       </div>
+    </section>
 
-      <div v-if="announcements.length === 0" class="admin-empty">
-        <p>暂无公告</p>
+    <section class="admin-surface scroll-fill table-wrap">
+      <div class="table-scroll-inner">
+        <el-table :data="announcements" stripe class="data-table" empty-text="暂无公告" row-key="id">
+          <el-table-column prop="title" label="标题" min-width="160" show-overflow-tooltip />
+          <el-table-column label="内容摘要" min-width="240" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.content }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="100" align="center">
+            <template #default="{ row }">
+              <span class="status-badge" :class="row.status === 1 ? 'active' : 'off'">
+                {{ row.status === 1 ? '展示中' : '已关闭' }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="时间" width="120" show-overflow-tooltip>
+            <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="200" fixed="right" align="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="toggleStatus(row)">
+                {{ row.status === 1 ? '关闭' : '启用' }}
+              </el-button>
+              <el-button link type="danger" size="small" @click="deleteAnnounce(row.id)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
-    </div>
+    </section>
 
-    <!-- Create dialog -->
     <div v-if="showCreate" class="admin-modal-overlay" @click.self="showCreate = false">
       <div class="admin-modal">
         <h3>发布新公告</h3>
@@ -62,13 +70,18 @@ const form = ref({ title: '', content: '' })
 
 const loadAnnouncements = async () => {
   try {
-    const res = await announcementApi.getAll(1, 50)
+    const res = await announcementApi.getAll(1, 100)
     if (res.data.code === 200) {
       announcements.value = res.data.data.records || []
     }
   } catch (e) {
     console.error('Failed to load announcements:', e)
   }
+}
+
+const openCreate = () => {
+  form.value = { title: '', content: '' }
+  showCreate.value = true
 }
 
 const createAnnounce = async () => {
@@ -98,7 +111,7 @@ const deleteAnnounce = async (id: number) => {
   if (!confirm('确定删除此公告？')) return
   try {
     await announcementApi.delete(id)
-    announcements.value = announcements.value.filter(a => a.id !== id)
+    announcements.value = announcements.value.filter((a) => a.id !== id)
     ElMessage.success('已删除')
   } catch (e) {
     ElMessage.error('删除失败')
@@ -114,30 +127,28 @@ onMounted(loadAnnouncements)
 </script>
 
 <style scoped>
-
-.announce-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
-}
-
-.announce-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-  padding: var(--sp-5);
-}
-
-.card-header {
+.intro-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: var(--sp-5);
+  flex-wrap: wrap;
 }
 
-.card-title {
-  font-size: var(--text-md);
+.page-intro .admin-page-title {
+  margin-bottom: var(--sp-2);
+}
+
+.table-wrap {
+  padding: 0;
+}
+
+.data-table :deep(.el-table__header th) {
   font-weight: 600;
-  color: var(--text-primary);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-hover) 88%, #e8f5ef 12%) !important;
 }
 
 .status-badge {
@@ -152,43 +163,12 @@ onMounted(loadAnnouncements)
   color: var(--green);
 }
 
-.status-badge.disabled {
+.status-badge.off {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-tertiary);
 }
 
-.card-content {
-  font-size: var(--text-base);
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-time {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-}
-
-.card-actions {
-  display: flex;
-  gap: var(--sp-2);
-}
-
-.card-actions .danger {
-  color: var(--red);
-  border-color: rgba(239, 68, 68, 0.2);
-}
-
-.card-actions .danger:hover {
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.admin-form-group textarea {
+.admin-form-group textarea.textarea {
   resize: vertical;
   min-height: 80px;
 }

@@ -62,4 +62,12 @@ public interface TrackMapper extends BaseMapper<Track> {
             "ORDER BY COALESCE(ph.cnt, 0) DESC, t.id ASC " +
             "LIMIT #{size} OFFSET #{offset}")
     List<Track> selectTracksOrderByPlayHistoryCount(@Param("size") int size, @Param("offset") int offset);
+
+    /**
+     * 按收藏人数取曲目 ID（已上架、未删除），人数降序
+     */
+    @Select("SELECT f.track_id FROM favorites f " +
+            "INNER JOIN tracks t ON t.id = f.track_id AND t.status = 1 AND t.deleted = 0 " +
+            "GROUP BY f.track_id ORDER BY COUNT(*) DESC, f.track_id ASC LIMIT #{limit}")
+    List<Long> selectTopTrackIdsByFavoriteCount(@Param("limit") int limit);
 }

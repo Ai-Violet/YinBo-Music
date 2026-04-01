@@ -1,37 +1,33 @@
 <template>
-  <div class="category-page admin-page">
-    <div class="admin-header">
-      <h2 class="admin-page-title">分类管理</h2>
-      <button class="admin-btn admin-btn-primary" @click="openAddModal">+ 添加分类</button>
-    </div>
-    <div class="admin-card admin-table-wrap">
-      <table class="admin-table data-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>名称</th>
-            <th>图标</th>
-            <th>排序</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="c in categories" :key="c.id">
-            <td>{{ c.id }}</td>
-            <td>{{ c.name }}</td>
-            <td>{{ c.icon || '-' }}</td>
-            <td>{{ c.sort }}</td>
-            <td>
-              <button class="admin-btn admin-btn-ghost" @click="openEditModal(c)">编辑</button>
-              <button class="admin-btn admin-btn-danger" @click="handleDelete(c)">删除</button>
-            </td>
-          </tr>
-          <tr v-if="!categories.length">
-            <td colspan="5" class="admin-empty">暂无分类，请点击「添加分类」</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+  <div class="category-page admin-page page-stack">
+    <section class="admin-surface page-intro admin-shrink-0">
+      <div class="intro-row">
+        <div>
+          <h2 class="admin-page-title">分类管理</h2>
+          <p class="admin-muted">与用户端首页分类、筛选项对应；下方列表区域单独滚动。</p>
+        </div>
+        <el-button type="primary" @click="openAddModal">+ 添加分类</el-button>
+      </div>
+    </section>
+
+    <section class="admin-surface scroll-fill table-wrap">
+      <div class="table-scroll-inner">
+        <el-table :data="categories" stripe class="data-table" empty-text="暂无分类" row-key="id">
+          <el-table-column prop="id" label="ID" width="72" />
+          <el-table-column prop="name" label="名称" min-width="140" show-overflow-tooltip />
+          <el-table-column label="图标" min-width="120" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.icon || '—' }}</template>
+          </el-table-column>
+          <el-table-column prop="sort" label="排序" width="88" align="center" />
+          <el-table-column label="操作" width="160" fixed="right" align="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="openEditModal(row)">编辑</el-button>
+              <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </section>
 
     <div v-if="showModal" class="admin-modal-overlay" @click.self="closeModal">
       <div class="admin-modal">
@@ -121,7 +117,32 @@ onMounted(loadCategories)
 </script>
 
 <style scoped>
-.data-table th, .data-table td { padding: var(--sp-4) var(--sp-5); }
-.admin-btn { margin-right: var(--sp-2); }
-.admin-btn:last-child { margin-right: 0; }
+.intro-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-5);
+  flex-wrap: wrap;
+}
+
+.page-intro .admin-page-title {
+  margin-bottom: var(--sp-2);
+}
+
+.table-wrap {
+  padding: 0;
+}
+
+.data-table {
+  width: 100%;
+  --el-table-border-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.data-table :deep(.el-table__header th) {
+  font-weight: 600;
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-hover) 88%, #e8f5ef 12%) !important;
+}
 </style>
