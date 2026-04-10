@@ -1,0 +1,3 @@
+/** 登录页头像预览降级图（与用户端一致） */
+export const DEFAULT_AVATAR_COVER =
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM0YTU1NjgiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjI0IiByPSIxMCIgZmlsbD0iIzJkMzc0OCIvPjxlbGxpcHNlIGN4PSIzMiIgY3k9IjUwIiByeD0iMTgiIHJ5PSIxNCIgZmlsbD0iIzJkMzc0OCIvPjwvc3ZnPg=='
