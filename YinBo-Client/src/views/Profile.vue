@@ -1,5 +1,7 @@
 <template>
   <div class="profile-page">
+    <!-- 顶部固定结构：切换 Tab 时不随下方内容高度变化而「错位」 -->
+    <div class="profile-sticky-top">
     <!-- 头部信息 -->
     <div class="profile-header">
       <div class="avatar-section" v-if="isMe" @click="triggerAvatarUpload">
@@ -128,15 +130,15 @@
             <span class="label">关注</span>
           </div>
           <div class="stat-item" v-if="isMe">
-            <span class="count">{{ myPlaylists.length }}</span>
+            <span class="count">{{ playlistTotal }}</span>
             <span class="label">歌单</span>
           </div>
           <div class="stat-item" v-if="isMe">
-            <span class="count">{{ favoriteTracks.length }}</span>
+            <span class="count">{{ favoriteTotal }}</span>
             <span class="label">收藏</span>
           </div>
           <div class="stat-item" v-if="isMe">
-            <span class="count">{{ playHistory.length }}</span>
+            <span class="count">{{ historyTotal }}</span>
             <span class="label">播放记录</span>
           </div>
         </div>
@@ -184,15 +186,10 @@
         {{ isMe ? '关注' : 'TA的关注' }}
       </button>
     </div>
-
-    <div class="quick-actions">
-      <button class="quick-btn" @click="router.push('/home')">回到首页</button>
-      <button class="quick-btn" @click="router.back()">返回上页</button>
-      <button class="quick-btn primary" :disabled="playHistory.length === 0" @click="playLatestHistory">
-        快速播放最近一首
-      </button>
     </div>
 
+    <!-- 仅本区域滚动，上方头像～Tab 固定 -->
+    <div class="profile-tab-body">
     <!-- 歌单列表 -->
     <div v-if="activeTab === 'playlists'" class="content-section">
       <div class="section-header">
@@ -204,31 +201,41 @@
           新建歌单
         </button>
       </div>
-      <div class="playlist-grid">
-        <div 
-          v-for="(playlist, index) in myPlaylists" 
-          :key="playlist.id" 
-          class="playlist-card fade-in-up"
-          :style="{ animationDelay: `${index * 0.05}s` }"
+      <div v-if="myPlaylists.length > 0" class="profile-playlist-grid">
+        <div
+          v-for="playlist in myPlaylists"
+          :key="playlist.id"
+          class="playlist-card"
         >
-          <div class="cover-wrapper" @click="goToPlaylist(playlist.id)">
-            <img :src="playlist.coverUrl || defaultCover" alt="封面" class="cover" />
-            <div class="play-overlay">
-              <div class="play-btn-circle">
+          <div class="pl-card-cover" @click="goToPlaylist(playlist.id)">
+            <img :src="playlist.coverUrl || defaultCover" alt="" class="pl-card-cover-img" />
+            <div class="pl-card-play-overlay">
+              <div class="pl-card-play-btn">
                 <svg viewBox="0 0 24 24" width="24" height="24">
                   <path fill="currentColor" d="M8 5v14l11-7z"/>
                 </svg>
               </div>
             </div>
           </div>
-          <div class="info">
+          <div class="pl-card-info">
             <h4 @click="goToPlaylist(playlist.id)">{{ playlist.name }}</h4>
             <p>{{ playlist.trackCount || 0 }} 首</p>
-            <button v-if="isMe" class="playlist-delete-btn" @click.stop="deletePlaylistFromProfile(playlist)" title="删除歌单">
+            <button
+              v-if="isMe"
+              type="button"
+              class="pl-card-delete"
+              title="删除歌单"
+              @click.stop="deletePlaylistFromProfile(playlist)"
+            >
               <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
           </div>
         </div>
+      </div>
+      <div class="profile-pagination" v-if="playlistTotal > listPageSize">
+        <button type="button" class="page-btn" :disabled="playlistPage <= 1" @click="prevPlaylists">上一页</button>
+        <span class="page-info">{{ playlistPage }} / {{ playlistTotalPages }}</span>
+        <button type="button" class="page-btn" :disabled="playlistPage >= playlistTotalPages" @click="nextPlaylists">下一页</button>
       </div>
       <div v-if="myPlaylists.length === 0" class="empty">
         <svg viewBox="0 0 24 24" width="64" height="64" style="opacity: 0.3; margin-bottom: 15px;">
@@ -238,58 +245,55 @@
       </div>
     </div>
 
-    <!-- 收藏列表（样式与主页最新音乐一致） -->
+    <!-- 收藏 -->
     <div v-if="activeTab === 'favorites'" class="content-section">
       <div class="section-header">
         <h3>{{ isMe ? '我收藏的音乐' : 'TA的收藏' }}</h3>
       </div>
-      <div class="profile-track-list">
-        <div 
-          v-for="(track, index) in favoriteTracks" 
-          :key="track.id" 
-          class="track-row slide-in-left"
-          :style="{ animationDelay: `${index * 0.03}s` }"
+      <div v-if="favoriteTracks.length > 0" class="profile-list">
+        <div
+          v-for="(track, idx) in favoriteTracks"
+          :key="track.id"
+          class="profile-list-row track-row"
           @click="playTrack(track)"
         >
-          <span class="index">{{ index + 1 }}</span>
-          <div class="row-cover-wrapper">
-            <img :src="track.coverUrl || defaultCover" alt="封面" class="row-cover" @error="onCoverError" />
+          <span class="row-index">{{ (favoritePage - 1) * listPageSize + idx + 1 }}</span>
+          <div class="row-cover-wrap" @click.stop="playTrack(track)">
+            <img :src="track.coverUrl || defaultCover" alt="" class="row-cover" @error="onCoverError" />
             <div class="row-play-overlay">
               <div class="row-play-btn">
-                <svg viewBox="0 0 24 24" width="18" height="18">
-                  <path fill="currentColor" d="M8 5v14l11-7z"/>
-                </svg>
+                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
               </div>
             </div>
           </div>
-          <div class="row-info">
-            <span class="title">{{ track.title }}</span>
-            <span class="artist"><ArtistLink :artist-id="track.artistId" :artist-name="track.artist" /></span>
+          <div class="row-main">
+            <span class="row-title">{{ track.title }}</span>
+            <span class="row-sub artist-line"><ArtistLink :artist-id="track.artistId" :artist-name="track.artist" /></span>
           </div>
-          <span class="duration">{{ formatDuration(track.duration) }}</span>
-          <div class="row-controls">
-            <button class="ctrl-btn" title="添加到歌单" @click.stop="showAddToPlaylist(track)">
-              <svg viewBox="0 0 24 24" width="16" height="16">
-                <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
+          <span class="row-dur">{{ formatDuration(track.duration) }}</span>
+          <div class="row-actions" @click.stop>
+            <button type="button" class="row-icon-btn" title="添加到歌单" @click="showAddToPlaylist(track)">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             </button>
-            <button class="ctrl-btn comment-btn" title="查看评论" @click.stop="goToComments(track)">
-              <svg viewBox="0 0 24 24" width="16" height="16">
-                <path fill="currentColor" d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/>
-              </svg>
+            <button type="button" class="row-icon-btn" title="查看评论" @click="goToComments(track)">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/></svg>
             </button>
-            <button 
+            <button
               v-if="isMe"
-              class="ctrl-btn like-btn liked"
+              type="button"
+              class="row-icon-btn liked"
               title="取消收藏"
-              @click.stop="removeFavorite(track.id)"
+              @click="removeFavorite(track.id)"
             >
-              <svg viewBox="0 0 24 24" width="16" height="16">
-                <path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-              </svg>
+              <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
             </button>
           </div>
         </div>
+      </div>
+      <div class="profile-pagination" v-if="favoriteTotal > listPageSize">
+        <button type="button" class="page-btn" :disabled="favoritePage <= 1" @click="prevFavorites">上一页</button>
+        <span class="page-info">{{ favoritePage }} / {{ favoriteTotalPages }}</span>
+        <button type="button" class="page-btn" :disabled="favoritePage >= favoriteTotalPages" @click="nextFavorites">下一页</button>
       </div>
       <div v-if="favoriteTracks.length === 0" class="empty">
         <svg viewBox="0 0 24 24" width="64" height="64" style="opacity: 0.3; margin-bottom: 15px;">
@@ -299,71 +303,68 @@
       </div>
     </div>
 
-    <!-- 播放历史（样式与主页最新音乐一致） -->
+    <!-- 播放历史 -->
     <div v-if="activeTab === 'history'" class="content-section">
       <div class="section-header">
         <h3>{{ isMe ? '播放历史' : 'TA的播放历史' }}</h3>
-        <button v-if="isMe && playHistory.length > 0" class="clear-btn" @click="clearPlayHistory">
+        <button v-if="isMe && historyTotal > 0" class="clear-btn" @click="clearPlayHistory">
           <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 6px;">
             <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
           </svg>
           清空历史
         </button>
       </div>
-      <div class="profile-track-list">
-        <div 
-          v-for="(track, index) in playHistory" 
-          :key="track.historyId || track.id + '-' + index" 
-          class="track-row slide-in-left"
-          :style="{ animationDelay: `${index * 0.03}s` }"
+      <div v-if="playHistory.length > 0" class="profile-list">
+        <div
+          v-for="(track, idx) in playHistory"
+          :key="track.historyId || track.id + '-' + idx"
+          class="profile-list-row track-row"
           @click="playTrack(track)"
         >
-          <span class="index">{{ index + 1 }}</span>
-          <div class="row-cover-wrapper">
-            <img :src="track.coverUrl || defaultCover" alt="封面" class="row-cover" @error="onCoverError" />
+          <span class="row-index">{{ (historyPage - 1) * listPageSize + idx + 1 }}</span>
+          <div class="row-cover-wrap" @click.stop="playTrack(track)">
+            <img :src="track.coverUrl || defaultCover" alt="" class="row-cover" @error="onCoverError" />
             <div class="row-play-overlay">
               <div class="row-play-btn">
-                <svg viewBox="0 0 24 24" width="18" height="18">
-                  <path fill="currentColor" d="M8 5v14l11-7z"/>
-                </svg>
+                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
               </div>
             </div>
           </div>
-          <div class="row-info">
-            <span class="title">{{ track.title }}</span>
-            <span class="artist"><ArtistLink :artist-id="track.artistId" :artist-name="track.artist" /></span>
+          <div class="row-main">
+            <span class="row-title">{{ track.title }}</span>
+            <span class="row-sub artist-line"><ArtistLink :artist-id="track.artistId" :artist-name="track.artist" /></span>
           </div>
-          <span class="duration">{{ formatDuration(track.duration) }}</span>
-          <span class="play-time">{{ formatPlayTime(track.playedAt) }}</span>
-          <div class="row-controls">
-            <button class="ctrl-btn" title="添加到歌单" @click.stop="showAddToPlaylist(track)">
-              <svg viewBox="0 0 24 24" width="16" height="16">
-                <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
+          <span class="row-dur">{{ formatDuration(track.duration) }}</span>
+          <span class="row-played">{{ formatPlayTime(track.playedAt) }}</span>
+          <div class="row-actions" @click.stop>
+            <button type="button" class="row-icon-btn" title="添加到歌单" @click="showAddToPlaylist(track)">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             </button>
-            <button class="ctrl-btn comment-btn" title="查看评论" @click.stop="goToComments(track)">
-              <svg viewBox="0 0 24 24" width="16" height="16">
-                <path fill="currentColor" d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/>
-              </svg>
+            <button type="button" class="row-icon-btn" title="查看评论" @click="goToComments(track)">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/></svg>
             </button>
-            <button 
-              class="ctrl-btn like-btn"
+            <button
+              type="button"
+              class="row-icon-btn"
               :class="{ liked: isFavorite(track.id) }"
               :title="isFavorite(track.id) ? '取消收藏' : '收藏'"
-              @click.stop="toggleFavorite(track)"
+              @click="toggleFavorite(track)"
             >
               <svg viewBox="0 0 24 24" width="16" height="16">
                 <path v-if="isFavorite(track.id)" fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                 <path v-else fill="currentColor" d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/>
               </svg>
             </button>
-            <button v-if="isMe" class="ctrl-btn delete-btn" title="删除记录" @click.stop="deleteHistoryItem(track.historyId)">
-              <svg viewBox="0 0 24 24" width="16" height="16">
-                <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/>
-              </svg>
+            <button v-if="isMe" type="button" class="row-icon-btn danger" title="删除记录" @click="deleteHistoryItem(track.historyId)">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
             </button>
           </div>
         </div>
+      </div>
+      <div class="profile-pagination" v-if="historyTotal > listPageSize">
+        <button type="button" class="page-btn" :disabled="historyPage <= 1" @click="prevHistory">上一页</button>
+        <span class="page-info">{{ historyPage }} / {{ historyTotalPages }}</span>
+        <button type="button" class="page-btn" :disabled="historyPage >= historyTotalPages" @click="nextHistory">下一页</button>
       </div>
       <div v-if="playHistory.length === 0" class="empty">
         <svg viewBox="0 0 24 24" width="64" height="64" style="opacity: 0.3; margin-bottom: 15px;">
@@ -378,21 +379,25 @@
       <div class="section-header">
         <h3>{{ isMe ? '我的粉丝' : 'TA的粉丝' }}</h3>
       </div>
-      <div class="follow-list">
-        <div 
-          v-for="(user, index) in followersList" 
-          :key="user.id" 
-          class="follow-item slide-in-left"
-          :style="{ animationDelay: `${index * 0.03}s` }"
-          @click="goToUserProfile(user.id)"
+      <div v-if="followersList.length > 0" class="profile-list">
+        <div
+          v-for="(u, idx) in followersList"
+          :key="u.id"
+          class="profile-list-row user-row"
+          @click="goToUserProfile(u.id)"
         >
-          <img :src="user.avatar || defaultAvatar" alt="头像" class="user-avatar" @error="onFollowAvatarError" />
-          <div class="user-info-mini">
-            <h4>{{ user.nickname || user.username || '用户' }}</h4>
-            <p v-if="user.signature" class="user-signature">{{ user.signature }}</p>
+          <span class="row-index">{{ (followersPage - 1) * listPageSize + idx + 1 }}</span>
+          <img :src="u.avatar || defaultAvatar" alt="" class="row-avatar" @error="onFollowAvatarError" />
+          <div class="row-main">
+            <span class="row-title">{{ u.nickname || u.username || '用户' }}</span>
+            <span class="row-sub ellipsis" :class="{ muted: !u.signature }">{{ u.signature || '暂无签名' }}</span>
           </div>
-          <span class="go-arrow">→</span>
         </div>
+      </div>
+      <div class="profile-pagination" v-if="followersTotal > listPageSize">
+        <button type="button" class="page-btn" :disabled="followersPage <= 1" @click="prevFollowers">上一页</button>
+        <span class="page-info">{{ followersPage }} / {{ followersTotalPages }}</span>
+        <button type="button" class="page-btn" :disabled="followersPage >= followersTotalPages" @click="nextFollowers">下一页</button>
       </div>
       <div v-if="followersList.length === 0" class="empty">
         <p>{{ isMe ? '暂无粉丝' : 'TA暂无粉丝' }}</p>
@@ -404,21 +409,25 @@
       <div class="section-header">
         <h3>{{ isMe ? '我的关注' : 'TA的关注' }}</h3>
       </div>
-      <div class="follow-list">
-        <div 
-          v-for="(user, index) in followingList" 
-          :key="user.id" 
-          class="follow-item slide-in-left"
-          :style="{ animationDelay: `${index * 0.03}s` }"
-          @click="goToUserProfile(user.id)"
+      <div v-if="followingList.length > 0" class="profile-list">
+        <div
+          v-for="(u, idx) in followingList"
+          :key="u.id"
+          class="profile-list-row user-row"
+          @click="goToUserProfile(u.id)"
         >
-          <img :src="user.avatar || defaultAvatar" alt="头像" class="user-avatar" @error="onFollowAvatarError" />
-          <div class="user-info-mini">
-            <h4>{{ user.nickname || user.username || '用户' }}</h4>
-            <p v-if="user.signature" class="user-signature">{{ user.signature }}</p>
+          <span class="row-index">{{ (followingPage - 1) * listPageSize + idx + 1 }}</span>
+          <img :src="u.avatar || defaultAvatar" alt="" class="row-avatar" @error="onFollowAvatarError" />
+          <div class="row-main">
+            <span class="row-title">{{ u.nickname || u.username || '用户' }}</span>
+            <span class="row-sub ellipsis" :class="{ muted: !u.signature }">{{ u.signature || '暂无签名' }}</span>
           </div>
-          <span class="go-arrow">→</span>
         </div>
+      </div>
+      <div class="profile-pagination" v-if="followingTotal > listPageSize">
+        <button type="button" class="page-btn" :disabled="followingPage <= 1" @click="prevFollowing">上一页</button>
+        <span class="page-info">{{ followingPage }} / {{ followingTotalPages }}</span>
+        <button type="button" class="page-btn" :disabled="followingPage >= followingTotalPages" @click="nextFollowing">下一页</button>
       </div>
       <div v-if="followingList.length === 0" class="empty">
         <p>{{ isMe ? '暂无关注' : 'TA暂无关注' }}</p>
@@ -430,29 +439,30 @@
       <div class="section-header">
         <h3>我的评论</h3>
       </div>
-      <div class="comment-list">
-        <div 
-          v-for="(comment, index) in myComments" 
-          :key="comment.id" 
-          class="my-comment-item slide-in-left"
-          :style="{ animationDelay: `${index * 0.03}s` }"
-          @click="openCommentDrawer(comment)"
+      <div v-if="myComments.length > 0" class="profile-list">
+        <div
+          v-for="(comment, idx) in myComments"
+          :key="comment.id"
+          class="profile-list-row comment-row"
         >
-          <div class="comment-track">
-            <img :src="comment.trackCover || defaultCover" alt="封面" class="track-cover-small" />
-            <div class="track-info-small">
-              <h4>{{ comment.trackTitle }}</h4>
-              <p>{{ comment.trackArtist }}</p>
+          <div class="comment-row-head" @click.stop="playTrackFromComment(comment)">
+            <img :src="comment.trackCover || defaultCover" alt="" class="row-cover sm" />
+            <div class="row-main">
+              <span class="row-title">{{ comment.trackTitle }}</span>
+              <span class="row-sub">{{ comment.trackArtist }}</span>
             </div>
           </div>
-          <div class="comment-content-area">
-            <p>{{ comment.content }}</p>
-            <div class="comment-meta">
-              <span class="time">{{ formatPlayTime(comment.createdAt) }}</span>
-              <button class="delete-btn" @click.stop="deleteComment(comment.id)">删除</button>
-            </div>
+          <p class="comment-row-body clickable" @click="openCommentDrawer(comment)">{{ comment.content }}</p>
+          <div class="comment-row-foot">
+            <span class="row-time">{{ formatPlayTime(comment.createdAt) }}</span>
+            <button type="button" class="row-text-btn" @click.stop="deleteComment(comment.id)">删除</button>
           </div>
         </div>
+      </div>
+      <div class="profile-pagination" v-if="commentTotal > listPageSize">
+        <button type="button" class="page-btn" :disabled="commentPage <= 1" @click="prevComments">上一页</button>
+        <span class="page-info">{{ commentPage }} / {{ commentTotalPages }}</span>
+        <button type="button" class="page-btn" :disabled="commentPage >= commentTotalPages" @click="nextComments">下一页</button>
       </div>
       <div v-if="myComments.length === 0" class="empty">
         <svg viewBox="0 0 24 24" width="64" height="64" style="opacity: 0.3; margin-bottom: 15px;">
@@ -460,6 +470,7 @@
         </svg>
         <p>暂无评论，去发表你的想法吧~</p>
       </div>
+    </div>
     </div>
 
     <!-- 新建歌单弹窗 -->
@@ -574,7 +585,7 @@
         <div class="playlist-options">
           <div class="playlist-option-header">选择歌单</div>
           <div 
-            v-for="pl in myPlaylists" 
+            v-for="pl in userStore.myPlaylists" 
             :key="pl.id" 
             class="playlist-option-item"
             @click="addTrackToPlaylist(pl.id)"
@@ -585,7 +596,7 @@
               <span class="pl-count">{{ pl.trackCount || 0 }} 首</span>
             </div>
           </div>
-          <div v-if="myPlaylists.length === 0" class="no-playlists">暂无歌单，请先创建</div>
+          <div v-if="userStore.myPlaylists.length === 0" class="no-playlists">暂无歌单，请先创建</div>
         </div>
       </div>
     </el-dialog>
@@ -665,6 +676,120 @@ const followCounts = ref({ following: 0, followers: 0 })
 const followLoading = ref(false)
 const followersList = ref<any[]>([])
 const followingList = ref<any[]>([])
+
+/** 列表每页条数（与服务端分页一致） */
+const listPageSize = 15
+const playlistPage = ref(1)
+const playlistTotal = ref(0)
+const favoritePage = ref(1)
+const favoriteTotal = ref(0)
+const historyPage = ref(1)
+const historyTotal = ref(0)
+const commentPage = ref(1)
+const commentTotal = ref(0)
+const followersPage = ref(1)
+const followersTotal = ref(0)
+const followingPage = ref(1)
+const followingTotal = ref(0)
+
+const playlistTotalPages = computed(() => Math.max(1, Math.ceil(playlistTotal.value / listPageSize)))
+const favoriteTotalPages = computed(() => Math.max(1, Math.ceil(favoriteTotal.value / listPageSize)))
+const historyTotalPages = computed(() => Math.max(1, Math.ceil(historyTotal.value / listPageSize)))
+const commentTotalPages = computed(() => Math.max(1, Math.ceil(commentTotal.value / listPageSize)))
+const followersTotalPages = computed(() => Math.max(1, Math.ceil(followersTotal.value / listPageSize)))
+const followingTotalPages = computed(() => Math.max(1, Math.ceil(followingTotal.value / listPageSize)))
+
+const prevPlaylists = () => {
+  if (playlistPage.value <= 1) return
+  playlistPage.value--
+  loadPlaylists()
+}
+const nextPlaylists = () => {
+  if (playlistPage.value >= playlistTotalPages.value) return
+  playlistPage.value++
+  loadPlaylists()
+}
+const prevFavorites = () => {
+  if (favoritePage.value <= 1) return
+  favoritePage.value--
+  loadFavorites()
+}
+const nextFavorites = () => {
+  if (favoritePage.value >= favoriteTotalPages.value) return
+  favoritePage.value++
+  loadFavorites()
+}
+const prevHistory = () => {
+  if (historyPage.value <= 1) return
+  historyPage.value--
+  loadPlayHistory()
+}
+const nextHistory = () => {
+  if (historyPage.value >= historyTotalPages.value) return
+  historyPage.value++
+  loadPlayHistory()
+}
+const prevComments = () => {
+  if (commentPage.value <= 1) return
+  commentPage.value--
+  loadMyComments()
+}
+const nextComments = () => {
+  if (commentPage.value >= commentTotalPages.value) return
+  commentPage.value++
+  loadMyComments()
+}
+const prevFollowers = () => {
+  if (followersPage.value <= 1) return
+  followersPage.value--
+  loadFollowers()
+}
+const nextFollowers = () => {
+  if (followersPage.value >= followersTotalPages.value) return
+  followersPage.value++
+  loadFollowers()
+}
+const prevFollowing = () => {
+  if (followingPage.value <= 1) return
+  followingPage.value--
+  loadFollowing()
+}
+const nextFollowing = () => {
+  if (followingPage.value >= followingTotalPages.value) return
+  followingPage.value++
+  loadFollowing()
+}
+
+/** 同步完整歌单到 store，供「添加到歌单」等全局使用 */
+const syncStorePlaylists = async () => {
+  if (!isMe.value || !userStore.currentUser) return
+  try {
+    const res = await playlistApi.getMyPlaylists(1, 500)
+    if (res.data.code === 200) {
+      const data = res.data.data
+      const records = Array.isArray(data) ? data : (data?.records || [])
+      userStore.setMyPlaylists(records)
+    }
+  } catch (e) {
+    console.error('syncStorePlaylists failed:', e)
+  }
+}
+
+/** 同步收藏 id 列表（分页列表只展示当前页，心形状态依赖全量 id） */
+const syncFavoriteIds = async () => {
+  if (!isMe.value) return
+  try {
+    const res = await favoriteApi.getMyFavorites(1, 3000)
+    if (res.data.code === 200) {
+      const data = res.data.data
+      const raw = Array.isArray(data) ? data : (data?.records || [])
+      favorites.value = raw.map((t: any) => t.id)
+      userStore.favorites = [...favorites.value]
+    }
+  } catch (e) {
+    console.error('syncFavoriteIds failed:', e)
+  }
+}
 
 const isMe = computed(() => {
   return !route.params.id || route.params.id === String(userStore.currentUser?.id)
@@ -780,8 +905,13 @@ const saveSignature = async () => {
 const goToFollowTab = (tab: 'followers' | 'following') => {
   activeTab.value = tab
   router.replace({ query: { ...route.query, tab } })
-  if (tab === 'followers') loadFollowers()
-  else loadFollowing()
+  if (tab === 'followers') {
+    followersPage.value = 1
+    loadFollowers()
+  } else {
+    followingPage.value = 1
+    loadFollowing()
+  }
 }
 
 const goToUserProfile = (userId: number) => {
@@ -792,14 +922,17 @@ const loadFollowers = async () => {
   const targetId = route.params.id ? Number(route.params.id) : userStore.currentUser?.id
   if (!targetId) return
   try {
-    const res = await followApi.getFollowers(targetId, 1, 100)
+    const res = await followApi.getFollowers(targetId, followersPage.value, listPageSize)
     if (res.data.code === 200) {
       const data = res.data.data
-      followersList.value = data?.records || []
+      const records = data?.records || []
+      followersList.value = records
+      followersTotal.value = typeof data?.total === 'number' ? data.total : records.length
     }
   } catch (e) {
     console.error('Failed to load followers:', e)
     followersList.value = []
+    followersTotal.value = 0
   }
 }
 
@@ -807,14 +940,17 @@ const loadFollowing = async () => {
   const targetId = route.params.id ? Number(route.params.id) : userStore.currentUser?.id
   if (!targetId) return
   try {
-    const res = await followApi.getFollowing(targetId, 1, 100)
+    const res = await followApi.getFollowing(targetId, followingPage.value, listPageSize)
     if (res.data.code === 200) {
       const data = res.data.data
-      followingList.value = data?.records || []
+      const records = data?.records || []
+      followingList.value = records
+      followingTotal.value = typeof data?.total === 'number' ? data.total : records.length
     }
   } catch (e) {
     console.error('Failed to load following:', e)
     followingList.value = []
+    followingTotal.value = 0
   }
 }
 
@@ -823,22 +959,26 @@ const loadPlaylists = async () => {
   if (!targetId && !userStore.currentUser) return
   try {
     if (isMe.value) {
-      const res = await playlistApi.getMyPlaylists(1, 100)
+      const res = await playlistApi.getMyPlaylists(playlistPage.value, listPageSize)
       if (res.data.code === 200) {
         const data = res.data.data
-        myPlaylists.value = Array.isArray(data) ? data : (data?.records || [])
-        userStore.setMyPlaylists(myPlaylists.value)
+        const records = Array.isArray(data) ? data : (data?.records || [])
+        myPlaylists.value = records
+        playlistTotal.value = typeof data?.total === 'number' ? data.total : records.length
       }
     } else {
-      const res = await playlistApi.getUserPlaylists(targetId!, 1, 100)
+      const res = await playlistApi.getUserPlaylists(targetId!, playlistPage.value, listPageSize)
       if (res.data.code === 200) {
         const data = res.data.data
-        myPlaylists.value = Array.isArray(data) ? data : (data?.records || [])
+        const records = Array.isArray(data) ? data : (data?.records || [])
+        myPlaylists.value = records
+        playlistTotal.value = typeof data?.total === 'number' ? data.total : records.length
       }
     }
   } catch (e) {
     console.error('Failed to load playlists:', e)
     myPlaylists.value = []
+    playlistTotal.value = 0
   }
 }
 
@@ -927,18 +1067,18 @@ const loadFavorites = async () => {
   if (!targetId && !userStore.currentUser) return
   try {
     const res = isMe.value
-      ? await favoriteApi.getMyFavorites(1, 1000)
-      : await favoriteApi.getUserFavorites(targetId!, 1, 1000)
+      ? await favoriteApi.getMyFavorites(favoritePage.value, listPageSize)
+      : await favoriteApi.getUserFavorites(targetId!, favoritePage.value, listPageSize)
     if (res.data.code === 200) {
       const data = res.data.data
       const raw = Array.isArray(data) ? data : (data?.records || [])
       favoriteTracks.value = raw.map((t: any) => normalizeTrack(t))
-      favorites.value = isMe.value ? favoriteTracks.value.map((t: any) => t.id) : []
-      if (isMe.value) userStore.favorites = [...favorites.value]
+      favoriteTotal.value = typeof data?.total === 'number' ? data.total : raw.length
     }
   } catch (e) {
     console.error('Failed to load favorites:', e)
     favoriteTracks.value = []
+    favoriteTotal.value = 0
   }
 }
 
@@ -1009,7 +1149,10 @@ const createPlaylist = async () => {
     }
     
     if (res.data.code === 200) {
-      myPlaylists.value.unshift(res.data.data)
+      userStore.addPlaylist(res.data.data)
+      playlistPage.value = 1
+      await loadPlaylists()
+      await syncStorePlaylists()
       showCreatePlaylist.value = false
       newPlaylistName.value = ''
       newPlaylistDesc.value = ''
@@ -1032,7 +1175,9 @@ const deletePlaylistFromProfile = async (playlist: any) => {
   try {
     await playlistApi.delete(playlist.id)
     userStore.removePlaylist(playlist.id)
-    myPlaylists.value = myPlaylists.value.filter(p => p.id !== playlist.id)
+    if (myPlaylists.value.length <= 1 && playlistPage.value > 1) playlistPage.value--
+    await loadPlaylists()
+    await syncStorePlaylists()
     ElMessage.success('歌单已删除')
   } catch (e: any) {
     console.error('Delete playlist failed:', e)
@@ -1131,17 +1276,13 @@ const playTrack = async (track: any) => {
   }
 }
 
-const playLatestHistory = () => {
-  if (playHistory.value.length === 0) return
-  playTrack(playHistory.value[0])
-}
-
 const removeFavorite = async (trackId: number) => {
   try {
     await favoriteApi.remove(trackId)
-    favoriteTracks.value = favoriteTracks.value.filter(t => t.id !== trackId)
     favorites.value = favorites.value.filter(id => id !== trackId)
     userStore.removeFavorite(trackId)
+    if (favoriteTracks.value.length <= 1 && favoritePage.value > 1) favoritePage.value--
+    await loadFavorites()
     ElMessage.success('已取消收藏')
   } catch (e) {
     console.error('Failed to remove favorite:', e)
@@ -1154,15 +1295,18 @@ const loadPlayHistory = async () => {
   try {
     const targetUserId = route.params.id
     const res = targetUserId
-      ? await userApi.getUserPlayHistory(Number(targetUserId), 1, 100)
-      : await userApi.getPlayHistory(1, 100)
+      ? await userApi.getUserPlayHistory(Number(targetUserId), historyPage.value, listPageSize)
+      : await userApi.getPlayHistory(historyPage.value, listPageSize)
     if (res.data.code === 200) {
       const data = res.data.data
       const raw = Array.isArray(data) ? data : (data?.records || [])
       playHistory.value = raw.map((t: any) => normalizeTrack(t))
+      historyTotal.value = typeof data?.total === 'number' ? data.total : raw.length
     }
   } catch (e) {
     console.error('Failed to load play history:', e)
+    playHistory.value = []
+    historyTotal.value = 0
   }
 }
 
@@ -1171,6 +1315,8 @@ const clearPlayHistory = async () => {
   try {
     await userApi.clearPlayHistory()
     playHistory.value = []
+    historyTotal.value = 0
+    historyPage.value = 1
     ElMessage.success('播放历史已清空')
   } catch (e) {
     console.error('Failed to clear play history:', e)
@@ -1182,7 +1328,8 @@ const clearPlayHistory = async () => {
 const deleteHistoryItem = async (historyId: number) => {
   try {
     await userApi.deletePlayHistoryItem(historyId)
-    playHistory.value = playHistory.value.filter(item => item.historyId !== historyId)
+    if (playHistory.value.length <= 1 && historyPage.value > 1) historyPage.value--
+    await loadPlayHistory()
     ElMessage.success('已删除记录')
   } catch (e) {
     console.error('Failed to delete history item:', e)
@@ -1193,14 +1340,18 @@ const deleteHistoryItem = async (historyId: number) => {
 // 加载我的评论
 const loadMyComments = async () => {
   try {
-    const res = await userApi.getMyComments(1, 100)
+    const res = await userApi.getMyComments(commentPage.value, listPageSize)
     if (res.data.code === 200) {
       const data = res.data.data
-      // 处理分页数据或直接数组
-      myComments.value = Array.isArray(data) ? data : (data.records || [])
+      const records = Array.isArray(data) ? data : (data.records || [])
+      myComments.value = records
+      const d = data as { total?: number }
+      commentTotal.value = typeof d?.total === 'number' ? d.total : records.length
     }
   } catch (e) {
     console.error('Failed to load my comments:', e)
+    myComments.value = []
+    commentTotal.value = 0
   }
 }
 
@@ -1219,7 +1370,8 @@ const openCommentDrawer = (comment: any) => {
 const deleteComment = async (commentId: number) => {
   try {
     await userApi.deleteComment(commentId)
-    myComments.value = myComments.value.filter(c => c.id !== commentId)
+    if (myComments.value.length <= 1 && commentPage.value > 1) commentPage.value--
+    await loadMyComments()
     ElMessage.success('评论已删除')
   } catch (e) {
     console.error('Failed to delete comment:', e)
@@ -1331,6 +1483,8 @@ onMounted(() => {
     router.push('/login')
     return
   }
+
+  document.documentElement.classList.add('yinbo-profile-stable-scroll')
   
   loadUserInfo()
   loadFollowData()
@@ -1339,6 +1493,8 @@ onMounted(() => {
     loadFavorites()
     loadPlayHistory()
     loadMyComments()
+    syncStorePlaylists()
+    syncFavoriteIds()
   } else {
     activeTab.value = 'playlists'
     loadPlaylists()
@@ -1352,12 +1508,20 @@ onMounted(() => {
 // 监听路由参数变化，当访问不同用户主页时重新加载
 watch(() => route.params.id, (newId, oldId) => {
   if (newId !== oldId) {
+    playlistPage.value = 1
+    favoritePage.value = 1
+    historyPage.value = 1
+    commentPage.value = 1
+    followersPage.value = 1
+    followingPage.value = 1
     loadUserInfo()
     if (isMe.value) {
       loadPlaylists()
       loadFavorites()
       loadPlayHistory()
       loadMyComments()
+      syncStorePlaylists()
+      syncFavoriteIds()
     } else {
       activeTab.value = 'playlists'
       loadPlaylists()
@@ -1365,6 +1529,8 @@ watch(() => route.params.id, (newId, oldId) => {
       myPlaylists.value = []
       favoriteTracks.value = []
       myComments.value = []
+      playlistTotal.value = 0
+      favoriteTotal.value = 0
     }
   }
 })
@@ -1386,28 +1552,61 @@ const handleVisibilityChange = () => {
 }
 
 onUnmounted(() => {
+  document.documentElement.classList.remove('yinbo-profile-stable-scroll')
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 
 <style scoped>
 .profile-page {
-  max-width: 1100px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  max-width: min(1320px, 96vw);
+  width: 100%;
   margin: 0 auto;
-  padding: var(--sp-6);
+  padding: var(--sp-6) var(--sp-5);
   color: var(--text-primary);
-  min-height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-/* 头部区域 */
+/* 头像～统计～Tab：不随下方列表滚动 */
+.profile-sticky-top {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  background: var(--bg-primary);
+  z-index: 2;
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.profile-tab-body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 头部区域（仅用透明度入场，避免 transform 造成「整块抖动」观感） */
 .profile-header {
   display: flex;
   gap: var(--sp-8);
   padding: var(--sp-6) 0;
   margin-bottom: var(--sp-6);
   position: relative;
-  animation: fadeIn var(--dur-slow) var(--ease-out);
+  animation: profileHeaderFade var(--dur-slow) var(--ease-out) both;
   border-bottom: 1px solid var(--border);
+}
+
+@keyframes profileHeaderFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes fadeIn {
@@ -1712,11 +1911,12 @@ onUnmounted(() => {
 /* 标签页 */
 .profile-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--sp-1);
-  margin-bottom: var(--sp-5);
+  margin-bottom: 0;
   padding-bottom: var(--sp-2);
-  border-bottom: 1px solid var(--border);
-  animation: fadeIn var(--dur-slow) var(--ease-out) 0.3s both;
+  border-bottom: none;
+  animation: profileHeaderFade var(--dur-slow) var(--ease-out) 0.15s both;
 }
 
 .tab {
@@ -1741,44 +1941,18 @@ onUnmounted(() => {
   background: transparent;
 }
 
-.quick-actions {
-  display: flex;
-  gap: var(--sp-3);
-  margin-bottom: var(--sp-5);
-  flex-wrap: wrap;
-}
-
-.quick-btn {
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  padding: var(--sp-1) var(--sp-3);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: color var(--dur-fast);
-}
-
-.quick-btn:hover:not(:disabled) {
-  color: var(--accent);
-}
-
-.quick-btn.primary {
-  color: var(--accent);
-}
-
-.quick-btn.primary:hover:not(:disabled) {
-  color: var(--accent-hover);
-}
-
-.quick-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 内容区域 */
+/* 内容区域：切换 Tab 时只做淡入，不用位移，避免个人信息区视觉上「跳」 */
 .content-section {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: var(--sp-6) 0;
-  animation: fadeIn var(--dur-slow) var(--ease-out) 0.4s both;
+  animation: profileTabContentFade 0.2s var(--ease-out) both;
+}
+
+@keyframes profileTabContentFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .section-header {
@@ -1813,110 +1987,90 @@ onUnmounted(() => {
   background: var(--accent-hover);
 }
 
-/* 歌单网格 */
-.playlist-grid {
+/* 我创建的歌单 / TA 的歌单：卡片网格（整体宽度与 profile-page 一致，仅本 Tab 用卡片） */
+.profile-playlist-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: var(--sp-4);
+  width: 100%;
+  min-width: 0;
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.fade-in-up {
-  animation: fadeInUp var(--dur-slow) var(--ease-out) forwards;
-  opacity: 0;
-}
-
-.playlist-card {
+.profile-playlist-grid .playlist-card {
   background: transparent;
   border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
-  transition: all var(--dur-normal) var(--ease-out);
+  transition: transform var(--dur-normal) var(--ease-out);
 }
 
-.playlist-card:hover {
+.profile-playlist-grid .playlist-card:hover {
   transform: translateY(-4px);
 }
 
-.cover-wrapper {
+.profile-playlist-grid .pl-card-cover {
   position: relative;
   aspect-ratio: 1;
   overflow: hidden;
+  border-radius: var(--radius-md);
 }
 
-.playlist-card .cover {
+.profile-playlist-grid .pl-card-cover-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
   transition: transform var(--dur-slow) var(--ease-out);
 }
 
-.playlist-card:hover .cover {
-  transform: scale(1.1);
+.profile-playlist-grid .playlist-card:hover .pl-card-cover-img {
+  transform: scale(1.08);
 }
 
-.play-overlay {
+.profile-playlist-grid .pl-card-play-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.7) 100%);
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.72) 100%);
   opacity: 0;
   transition: opacity var(--dur-normal);
 }
 
-.playlist-card:hover .play-overlay {
+.profile-playlist-grid .playlist-card:hover .pl-card-play-overlay {
   opacity: 1;
 }
 
-.play-btn-circle {
-  width: 50px;
-  height: 50px;
-  border-radius: var(--radius-full);
+.profile-playlist-grid .pl-card-play-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
   background: var(--play-overlay-btn-bg);
   color: var(--play-overlay-btn-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  transform: scale(0.8);
-  transition: all var(--dur-normal);
+  transform: scale(0.88);
+  transition: transform var(--dur-normal);
   box-shadow: var(--shadow-sm);
 }
 
-.playlist-card:hover .play-btn-circle {
+.profile-playlist-grid .playlist-card:hover .pl-card-play-btn {
   transform: scale(1);
 }
 
-.play-btn-circle:hover {
-  transform: scale(1.1);
-  opacity: 1;
-}
-
-.playlist-card .info {
+.profile-playlist-grid .pl-card-info {
   padding: var(--sp-3);
   position: relative;
 }
 
-.playlist-delete-btn {
+.profile-playlist-grid .pl-card-delete {
   position: absolute;
   top: var(--sp-1);
   right: var(--sp-1);
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -1926,29 +2080,355 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.7;
+  opacity: 0.75;
   transition: all var(--dur-fast);
 }
 
-.playlist-delete-btn:hover {
+.profile-playlist-grid .pl-card-delete:hover {
   opacity: 1;
   color: var(--red);
 }
 
-.playlist-card h4 {
+.profile-playlist-grid .pl-card-info h4 {
   margin: 0 0 var(--sp-1);
   font-size: var(--text-base);
   font-weight: 600;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text-primary);
+  cursor: pointer;
 }
 
-.playlist-card p {
+.profile-playlist-grid .pl-card-info h4:hover {
+  color: var(--accent);
+}
+
+.profile-playlist-grid .pl-card-info p {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--text-secondary);
+}
+
+/* 全宽列表（与 profile-page 同宽） */
+.profile-list {
+  width: 100%;
+  min-width: 0;
+  background: var(--bg-hover);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.profile-list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: 12px var(--sp-5);
+  border-bottom: 1px solid var(--border);
+  transition: background var(--dur-fast);
+  min-width: 0;
+}
+
+.profile-list-row:last-child {
+  border-bottom: none;
+}
+
+.profile-list-row.track-row {
+  cursor: pointer;
+}
+
+.profile-list-row.track-row:hover {
+  background: var(--accent-muted);
+}
+
+.profile-list-row.user-row {
+  cursor: pointer;
+}
+
+.profile-list-row.user-row:hover {
+  background: var(--bg-active);
+}
+
+.row-index {
+  width: 28px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.row-cover-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.row-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.row-cover.sm {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+}
+
+.row-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.track-row:hover .row-play-overlay {
+  opacity: 1;
+}
+
+.row-play-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--play-overlay-btn-bg);
+  color: var(--play-overlay-btn-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.row-play-btn svg {
+  margin-left: 2px;
+}
+
+.row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.row-main.clickable {
+  cursor: pointer;
+}
+
+.row-title {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-sub {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.row-sub.ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-sub.muted {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.row-sub.artist-line :deep(a) {
+  color: inherit;
+  text-decoration: none;
+}
+
+.row-sub.artist-line :deep(a:hover) {
+  color: var(--accent);
+}
+
+.row-dur {
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-played {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  min-width: 72px;
+  text-align: right;
+}
+
+.row-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid var(--border-hover);
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.row-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+
+.track-row:hover .row-icon-btn {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.row-icon-btn:hover {
+  color: var(--accent);
+  background: var(--bg-active);
+}
+
+.row-icon-btn.liked {
+  color: var(--red);
+}
+
+.row-icon-btn.danger:hover {
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+/* 评论行（块级） */
+.profile-list-row.comment-row {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  cursor: default;
+}
+
+.comment-row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1 1 200px;
+  min-width: 0;
+  cursor: pointer;
+  padding: var(--sp-1);
+  margin: calc(-1 * var(--sp-1));
+  border-radius: var(--radius-md);
+  transition: background var(--dur-fast);
+}
+
+.comment-row-head:hover {
+  background: var(--bg-active);
+}
+
+.comment-row-body {
+  flex: 1 1 100%;
+  margin: 0;
+  padding-left: calc(28px + var(--sp-4) + 40px + var(--sp-3));
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.comment-row-body.clickable {
+  cursor: pointer;
+}
+
+.comment-row-foot {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  padding-left: calc(28px + var(--sp-4) + 40px + var(--sp-3));
+}
+
+.row-time {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.row-text-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.row-text-btn:hover {
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.profile-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-5);
+  margin-top: var(--sp-6);
+  padding-bottom: var(--sp-2);
+}
+
+.profile-pagination .page-btn {
+  padding: var(--sp-2) var(--sp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+
+.profile-pagination .page-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.profile-pagination .page-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.profile-pagination .page-info {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 72px;
+  text-align: center;
 }
 
 /* 音乐列表美化 */
@@ -1956,184 +2436,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
-}
-
-/* 收藏/播放历史 track-row 样式（与主页一致） */
-.profile-track-list {
-  background: var(--bg-hover);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.profile-track-list .track-row {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 14px var(--sp-5);
-  cursor: pointer;
-  transition: all var(--dur-fast) ease;
-  border-bottom: 1px solid var(--border);
-}
-
-.profile-track-list .track-row:last-child {
-  border-bottom: none;
-}
-
-.profile-track-list .track-row:hover {
-  background: var(--accent-muted);
-}
-
-.profile-track-list .track-row .index {
-  width: 30px;
-  text-align: center;
-  font-size: var(--text-base);
-  font-weight: 500;
-  color: var(--text-tertiary);
-}
-
-.profile-track-list .track-row:hover .index {
-  color: var(--accent);
-}
-
-.profile-track-list .row-cover {
-  width: 50px;
-  height: 50px;
-  border-radius: var(--radius-md);
-  object-fit: cover;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--dur-fast);
-}
-
-.profile-track-list .row-cover-wrapper {
-  position: relative;
-  width: 50px;
-  height: 50px;
-}
-
-.profile-track-list .row-play-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: var(--radius-md);
-  opacity: 0;
-  transition: opacity var(--dur-fast);
-}
-
-.profile-track-list .track-row:hover .row-play-overlay {
-  opacity: 1;
-}
-
-.profile-track-list .row-play-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--play-overlay-btn-bg);
-  color: var(--play-overlay-btn-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform var(--dur-fast);
-}
-
-.profile-track-list .row-play-btn:hover {
-  transform: scale(1.1);
-}
-
-.profile-track-list .row-play-btn svg {
-  margin-left: 2px;
-}
-
-.profile-track-list .track-row:hover .row-cover {
-  transform: scale(1.05);
-}
-
-.profile-track-list .row-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.profile-track-list .row-info .title {
-  font-size: var(--text-base);
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.profile-track-list .row-info .artist {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-}
-
-.profile-track-list .duration {
-  font-size: var(--text-sm);
-  color: var(--text-tertiary);
-  min-width: 45px;
-  text-align: right;
-}
-
-.profile-track-list .play-time {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  min-width: 70px;
-  text-align: right;
-}
-
-.profile-track-list .row-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.profile-track-list .row-controls .ctrl-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  padding: var(--sp-2);
-  border-radius: 50%;
-  transition: all var(--dur-fast);
-  opacity: 0;
-}
-
-.profile-track-list .track-row:hover .row-controls .ctrl-btn {
-  opacity: 1;
-}
-
-.profile-track-list .row-controls .ctrl-btn:hover {
-  color: var(--accent);
-}
-
-.profile-track-list .row-controls .ctrl-btn.like-btn,
-.profile-track-list .row-controls .ctrl-btn.liked {
-  opacity: 1;
-}
-
-.profile-track-list .row-controls .ctrl-btn.delete-btn:hover {
-  color: var(--red);
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.profile-track-list .like-btn {
-  color: var(--text-tertiary);
-}
-
-.profile-track-list .like-btn.liked {
-  color: var(--red);
-}
-
-.profile-track-list .like-btn.liked:hover {
-  color: var(--red);
-  background: rgba(239, 68, 68, 0.1);
 }
 
 /* 添加到歌单弹窗 */
@@ -2373,59 +2675,6 @@ onUnmounted(() => {
   color: var(--accent-muted);
 }
 
-/* 粉丝/关注列表 */
-.follow-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-}
-
-.follow-item {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--dur-fast);
-}
-
-.follow-item:hover {
-  background: var(--bg-hover);
-}
-
-.follow-item .user-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-full);
-  object-fit: cover;
-}
-
-.follow-item .user-info-mini {
-  flex: 1;
-  min-width: 0;
-}
-
-.follow-item .user-info-mini h4 {
-  font-size: var(--text-base);
-  margin: 0;
-  color: var(--text-primary);
-}
-
-.follow-item .user-signature {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  margin: var(--sp-1) 0 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.follow-item .go-arrow {
-  color: var(--text-tertiary);
-  font-size: var(--text-lg);
-}
-
 /* 弹窗美化 */
 .modal {
   position: fixed;
@@ -2542,7 +2791,13 @@ onUnmounted(() => {
   box-shadow: 0 var(--sp-2) var(--sp-5) var(--accent-glow);
 }
 
-/* 响应式 */
+/* 响应式（歌单卡片：先宽屏降级列数，再窄屏覆盖，避免后写的 900px 盖掉 768px） */
+@media (max-width: 900px) {
+  .profile-playlist-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
   .profile-header {
     flex-direction: column;
@@ -2558,21 +2813,31 @@ onUnmounted(() => {
   .stats {
     justify-content: center;
   }
-  
-  .playlist-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--sp-4);
-  }
-}
 
-@media (max-width: 900px) {
-  .playlist-grid {
-    grid-template-columns: repeat(3, 1fr);
+  .profile-playlist-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .profile-list-row {
+    flex-wrap: wrap;
+  }
+
+  .row-played {
+    min-width: auto;
   }
 }
 
 @media (max-width: 600px) {
-  .playlist-grid {
+  .comment-row-body,
+  .comment-row-foot {
+    padding-left: 0;
+  }
+
+  .row-index {
+    display: none;
+  }
+
+  .profile-playlist-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -2600,77 +2865,6 @@ onUnmounted(() => {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
   margin-right: var(--sp-3);
-}
-
-/* 我的评论样式 */
-.my-comment-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--sp-2);
-  transition: all var(--dur-fast);
-  cursor: pointer;
-}
-
-.my-comment-item:hover {
-  background: var(--bg-hover);
-}
-
-.comment-track {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  cursor: pointer;
-  padding: var(--sp-2);
-  border-radius: var(--radius-sm);
-  transition: all var(--dur-fast);
-}
-
-.track-cover-small {
-  width: 45px;
-  height: 45px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-}
-
-.track-info-small {
-  flex: 1;
-}
-
-.track-info-small h4 {
-  margin: 0;
-  font-size: var(--text-base);
-  color: var(--text-primary);
-}
-
-.track-info-small p {
-  margin: var(--sp-1) 0 0;
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-}
-
-.comment-content-area {
-  padding-left: var(--sp-2);
-}
-
-.comment-content-area p {
-  margin: 0 0 var(--sp-2);
-  font-size: var(--text-base);
-  color: var(--text-primary);
-  line-height: 1.6;
-}
-
-.comment-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.comment-meta .time {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
 }
 
 .delete-btn {
@@ -2952,5 +3146,12 @@ onUnmounted(() => {
 
 .form-textarea::placeholder {
   color: var(--text-tertiary);
+}
+</style>
+
+<style>
+/* 个人页：避免 Tab 切换时纵向滚动条显隐导致主栏横向偏移 */
+html.yinbo-profile-stable-scroll {
+  scrollbar-gutter: stable;
 }
 </style>

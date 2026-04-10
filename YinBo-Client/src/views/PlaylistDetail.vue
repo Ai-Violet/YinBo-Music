@@ -1,5 +1,6 @@
 <template>
   <div class="playlist-detail-page">
+    <div class="playlist-detail-sticky">
     <!-- 顶部导航 -->
     <div class="top-bar">
       <button class="back-btn" @click="goBack">
@@ -101,8 +102,10 @@
         </div>
       </div>
     </div>
+    </div>
 
-    <!-- 歌曲列表（样式与主页最新音乐一致） -->
+    <!-- 仅歌曲列表滚动 -->
+    <div class="playlist-detail-scroll">
     <div class="track-list">
       <div 
         v-for="(track, index) in tracks" 
@@ -166,6 +169,7 @@
         </svg>
         <p>歌单暂无歌曲</p>
       </div>
+    </div>
     </div>
 
     <!-- 转移到其他歌单弹窗 -->
@@ -688,10 +692,34 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 与个人主页同宽；顶部固定、仅曲目列表滚动（与 AppLayout flex 配合） */
 .playlist-detail-page {
-  padding: var(--sp-5);
-  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  max-width: min(1320px, 96vw);
+  width: 100%;
   margin: 0 auto;
+  padding: var(--sp-6) var(--sp-5);
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.playlist-detail-sticky {
+  flex-shrink: 0;
+  background: var(--bg-primary);
+  z-index: 2;
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.playlist-detail-scroll {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* 顶部导航 */
@@ -700,6 +728,8 @@ onMounted(() => {
   align-items: center;
   gap: var(--sp-4);
   margin-bottom: var(--sp-6);
+  width: 100%;
+  min-width: 0;
 }
 
 .back-btn {
@@ -773,7 +803,9 @@ onMounted(() => {
 .playlist-header {
   display: flex;
   gap: var(--sp-6);
-  margin-bottom: var(--sp-8);
+  margin-bottom: var(--sp-4);
+  width: 100%;
+  min-width: 0;
 }
 
 .cover-wrapper {
@@ -976,6 +1008,8 @@ onMounted(() => {
 /* 歌曲列表（与主页最新音乐样式一致） */
 .track-list {
   margin-top: var(--sp-2);
+  width: 100%;
+  min-width: 0;
   background: var(--bg-hover);
   border-radius: var(--radius-lg);
   overflow: hidden;

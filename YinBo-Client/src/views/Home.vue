@@ -1371,19 +1371,39 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  --home-sidebar-w: 220px;
+  /* 与 .top-header 实际占位一致，供 fixed 侧栏 top 对齐 */
+  --home-header-offset: calc(72px + env(safe-area-inset-top, 0px));
+  padding-top: var(--home-header-offset);
 }
 
 .top-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  row-gap: var(--sp-2);
   padding: var(--sp-3) var(--sp-8);
+  padding-top: max(var(--sp-3), env(safe-area-inset-top, 0px));
   background: var(--bg-secondary);
-  backdrop-filter: blur(10px);
-  position: sticky;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  /* 固定在视口顶部：搜索、用户区始终可见 */
+  position: fixed;
   top: 0;
-  z-index: var(--z-dropdown);
+  left: 0;
+  right: 0;
+  z-index: 350;
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 720px) {
+  .home-page {
+    --home-header-offset: calc(120px + env(safe-area-inset-top, 0px));
+    padding-top: var(--home-header-offset);
+  }
 }
 
 .logo {
@@ -1838,20 +1858,33 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   display: flex;
+  flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
+/* 左侧栏固定：收藏、歌单等不随右侧滚动 */
 .sidebar {
-  width: 220px;
+  position: fixed;
+  left: 0;
+  top: var(--home-header-offset);
+  bottom: var(--player-h);
+  width: var(--home-sidebar-w);
+  max-width: min(var(--home-sidebar-w), 85vw);
   background: var(--bg-secondary);
   padding: var(--sp-5) var(--sp-4);
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   transition: transform var(--dur-normal) var(--ease-out);
   border-right: 1px solid var(--border);
+  z-index: 320;
+  box-sizing: border-box;
 }
 
 .sidebar.sidebar-collapsed {
   transform: translateX(-100%);
+  pointer-events: none;
 }
 
 .nav-menu {
@@ -1964,14 +1997,31 @@ onBeforeUnmount(() => {
   color: var(--text-tertiary);
 }
 
+/*
+ * 仅右侧区域滚动；侧栏 fixed 时不能用 width:100% + margin-left 并列，
+ * 否则总宽度超过视口，列表/卡片会被横向挤压变形。
+ */
 .content-area {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  width: calc(100% - var(--home-sidebar-w));
+  margin-left: var(--home-sidebar-w);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  align-items: stretch;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: var(--sp-5) var(--sp-8);
   padding-bottom: 120px;
+  box-sizing: border-box;
+  transition: margin-left var(--dur-normal) var(--ease-out), width var(--dur-normal) var(--ease-out);
+}
+
+.main-content:has(.sidebar.sidebar-collapsed) .content-area {
+  margin-left: 0;
+  width: 100%;
 }
 
 .home-content-divider {
@@ -1984,23 +2034,26 @@ onBeforeUnmount(() => {
 
 .home-hot-section {
   flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin-bottom: 0;
 }
 
 .home-tab-panel {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .home-tab-section {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   margin-bottom: 0;
 }
 
@@ -2009,12 +2062,11 @@ onBeforeUnmount(() => {
   margin-bottom: var(--sp-3);
 }
 
+/* 滚动统一在 .content-area，此处不再单独滚动，避免双滚动条 */
 .home-song-list-scroll {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
 }
 
 .home-tab-pagination {
@@ -2101,6 +2153,9 @@ onBeforeUnmount(() => {
 .ranking-section .ranking-list {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background: var(--bg-hover);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -2109,7 +2164,9 @@ onBeforeUnmount(() => {
 .ranking-item {
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 14px;
+  min-width: 0;
   padding: var(--sp-3) var(--sp-5);
   cursor: pointer;
   transition: background var(--dur-fast);
@@ -2126,6 +2183,7 @@ onBeforeUnmount(() => {
 
 .rank-num {
   width: 26px;
+  flex-shrink: 0;
   text-align: center;
   font-size: var(--text-md);
   font-weight: 700;
@@ -2199,6 +2257,10 @@ onBeforeUnmount(() => {
 .rank-artist {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rank-duration {
@@ -2220,6 +2282,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .rank-controls .ctrl-btn {
@@ -2261,9 +2324,9 @@ onBeforeUnmount(() => {
 }
 
 .sidebar-toggle {
-  position: absolute;
+  position: fixed;
   left: 12px;
-  top: 16px;
+  top: calc(var(--home-header-offset) + 10px);
   width: 34px;
   height: 34px;
   border-radius: 50%;
@@ -2275,7 +2338,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  z-index: 120;
+  z-index: 340;
   padding: 0;
 }
 
@@ -2322,6 +2385,9 @@ onBeforeUnmount(() => {
 
 .track-grid {
   display: grid;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: var(--sp-6);
 }
@@ -2364,6 +2430,7 @@ onBeforeUnmount(() => {
 }
 
 .track-card {
+  min-width: 0;
   background: var(--bg-card);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -2438,6 +2505,7 @@ onBeforeUnmount(() => {
 
 .track-info {
   padding: var(--sp-3);
+  min-width: 0;
 }
 
 .title {
@@ -2459,8 +2527,10 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--sp-2);
   margin-top: 6px;
   min-height: 24px;
+  min-width: 0;
 }
 
 .track-duration {
@@ -2526,6 +2596,9 @@ onBeforeUnmount(() => {
 }
 
 .track-list {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background: var(--bg-hover);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -2534,7 +2607,9 @@ onBeforeUnmount(() => {
 .track-row {
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 15px;
+  min-width: 0;
   padding: 14px var(--sp-5);
   cursor: pointer;
   transition: all var(--dur-fast) ease;
@@ -2551,6 +2626,7 @@ onBeforeUnmount(() => {
 
 .index {
   width: 30px;
+  flex-shrink: 0;
   text-align: center;
   font-size: var(--text-base);
   font-weight: 500;
@@ -2574,6 +2650,7 @@ onBeforeUnmount(() => {
   position: relative;
   width: 50px;
   height: 50px;
+  flex-shrink: 0;
 }
 
 .row-play-overlay {
@@ -2622,6 +2699,7 @@ onBeforeUnmount(() => {
 
 .row-info {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -2638,12 +2716,17 @@ onBeforeUnmount(() => {
 .row-info .artist {
   font-size: var(--text-xs);
   color: var(--text-secondary);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .duration {
   font-size: var(--text-sm);
   color: var(--text-tertiary);
   min-width: 45px;
+  flex-shrink: 0;
   text-align: right;
 }
 
@@ -2651,6 +2734,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .row-controls .ctrl-btn {
@@ -2787,12 +2871,10 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
-  .sidebar {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 110;
+  /* 窄屏侧栏为抽屉叠在内容之上，主内容区全宽 */
+  .content-area {
+    margin-left: 0;
+    width: 100%;
   }
 
   .sidebar-toggle {
